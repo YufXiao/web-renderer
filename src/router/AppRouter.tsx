@@ -1,6 +1,4 @@
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import MeshRenderer from '../views/Mesh';
-import PointCloudRenderer from "../views/PointCloud";
 import Home from "../views/Home";
 
 

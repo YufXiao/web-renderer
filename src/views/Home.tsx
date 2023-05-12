@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GUI } from 'lil-gui';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
+import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 
 
 export default function Home() {
@@ -87,15 +89,25 @@ export default function Home() {
     const handleFileUpload = (event : any) => {
         const file = event.target.files[0];
         if (file) {
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        console.log(fileExtension);
         const reader = new FileReader();
         reader.onload = () => {
-            const objLoader = new OBJLoader();
+            let loader;
             let loadedMesh;
-            objLoader.load(reader.result as string, (objScene) => {
+            if (fileExtension === 'pcd') {
+                loader = new PCDLoader();
+            } else if (fileExtension === 'obj') {
+                loader = new OBJLoader();
+            } else {
+                console.log('Unsupported file format');
+                return;
+            }
+            loader.load(reader.result as string, (objScene) => {
                 loadedMesh = objScene;
-                loadedMesh.position.set(0, 0, 0);
-                loadedMesh.castShadow = true;
-                loadedMesh.receiveShadow = true;
+                // loadedMesh.position.set(0, 0, 0);
+                // loadedMesh.castShadow = true;
+                // loadedMesh.receiveShadow = true;
                 scene.dragableObjects.push(loadedMesh);
                 scene.scene.add(loadedMesh);
 
@@ -108,7 +120,7 @@ export default function Home() {
     const handleClick = () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.obj, ply, .pcd';
+        input.accept = '.obj, .pcd';
         input.addEventListener('change', handleFileUpload);
         input.click();
     };

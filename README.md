@@ -1,4 +1,4 @@
-# Web Renderer
+# Web Renderer - Vite + React + Typescript + Tailwindcss
 
 ### Dev Environment
 - Windows 11
