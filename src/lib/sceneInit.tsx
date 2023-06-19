@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js'
-
 import { DragControls } from 'three/addons/controls/DragControls.js';
 
 
@@ -21,10 +20,13 @@ export default class SceneInit{
     public directionalLight : any;
     public animationFrameId : any;
     public pointLight : any;
+    public dirLight : any;
     public dragableObjects : any;
     public dragControls : any;
+    public pointClouds : THREE.Points[] = [];
+    public shaderMaterial : any;
 
-    constructor(canvasId : any) {
+    constructor(canvasId : any, shaderMaterial : any) {
         this.scene = undefined;
         this.camera = undefined;
         this.renderer = undefined;
@@ -45,6 +47,7 @@ export default class SceneInit{
         this.animationFrameId = null;
         this.dragableObjects = [];
         this.dragControls = undefined;
+        this.shaderMaterial = shaderMaterial;
     }
 
     initialize() {
@@ -52,22 +55,22 @@ export default class SceneInit{
             this.fov,
             window.innerWidth / window.innerHeight,
             1,
-            1000
+            10000
         );
-        this.camera.position.z = 30;
-        this.camera.position.y = 20;
-        this.camera.position.x = 20;
+        this.camera.position.set(10, 10, 15);
 
         this.clock = new THREE.Clock();
         this.scene = new THREE.Scene();
-        
+        this.scene.background = new THREE.Color( 0xa0a0a0 );
+		this.scene.fog = new THREE.Fog( 0xa0a0a0, 15, 80 );
+
         const canvas : any = document.getElementById(this.canvasId);
         this.renderer = new THREE.WebGLRenderer({
             canvas: canvas,
             antialias: true,
         });
         this.renderer.shadowMap.enabled = false;
-
+        this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
 
@@ -77,32 +80,36 @@ export default class SceneInit{
         this.stats = new Stats();
         document.body.appendChild(this.stats.dom);
 
-        let ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        ambientLight.castShadow = true;
-        this.scene.add(ambientLight);
-        
-        this.pointLight = new THREE.PointLight(0xffffff, 0.5);
-        this.pointLight.castShadow = true;
-        this.pointLight.position.set(0, 15, 15);
-        this.scene.add(this.pointLight);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8d8d8d);
+		hemiLight.position.set(0, 20, 0);
+		this.scene.add(hemiLight);
+
+        this.dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        this.dirLight.position.set(3, 10, 10);
+        this.dirLight.castShadow = true;
+        this.dirLight.shadow.camera.top = 2;
+        this.dirLight.shadow.camera.bottom = - 2;
+        this.dirLight.shadow.camera.left = - 2;
+        this.dirLight.shadow.camera.right = 2;
+        this.dirLight.shadow.camera.near = 0.1;
+        this.dirLight.shadow.camera.far = 40;
+        this.scene.add(this.dirLight);
+
+        const mesh = new THREE.Mesh( new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({color: 0x393b39, depthWrite: false}));
+        mesh.translateY(-5.0);
+        mesh.rotation.x = - Math.PI / 2;
+        mesh.receiveShadow = true;
+        this.scene.add(mesh);
 
         const axesHelper = new THREE.AxesHelper(10);
-        this.scene.add(axesHelper);
-
-        this.dragControls = new DragControls(this.dragableObjects, this.camera, this.renderer.domElement);
-
-        this.dragControls.addEventListener('dragstart', () => {
-            this.controls.enabled = false;
-        });
-        this.dragControls.addEventListener('dragend', () => {
-            this.controls.enabled = true;
-        });
-
+        // this.scene.add(axesHelper);
         window.addEventListener('resize', () => this.onWindowResize(), false);        
     }
 
     animate() {
         this.animationFrameId = window.requestAnimationFrame(this.animate.bind(this));
+        this.shaderMaterial.uniforms.u_time.value += this.clock.getDelta();
+        // console.log(this.shaderMaterial.uniforms.u_time.value);
         this.render();
         this.stats.update();
         this.controls.update();
