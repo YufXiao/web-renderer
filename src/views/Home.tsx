@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import SceneInit from '../lib/sceneInit';
 import * as THREE from 'three'; 
-import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GUI } from 'lil-gui';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
-import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+
 
 
 export default function Home() {
@@ -29,12 +30,15 @@ export default function Home() {
             void main() {
                 gl_FragColor = vec4(vColor, 1.0);
             }`,
-    })
+   })
   const scene = new SceneInit('RendererCanvas', shaderMaterial);
   let loadedPointCloud : THREE.Points;
   let shaderCloud : THREE.Points;
   let INTERSECTED : number | undefined;
   let PARTICLE_SIZE : number;
+  let clickedPositions : THREE.Vector3[] = [];
+  let clickedSphereStack : THREE.Mesh[] = [];
+  let labelStack : THREE.Mesh[] = [];
 
   const vertexShader = `
         uniform float size;
@@ -83,17 +87,9 @@ export default function Home() {
             }
         }
         
-        
         bufferGeometry.setAttribute('position', new THREE.BufferAttribute(bufferPositions, 3));
         bufferGeometry.setAttribute('color', new THREE.BufferAttribute(bufferColors, 3));
         bufferGeometry.setAttribute('size', new THREE.BufferAttribute(bufferSizes, 1));
-        
-        // let material = new THREE.PointsMaterial({
-        //     size: PARTICLE_SIZE,
-        //     vertexColors: true,
-        //     alphaTest: 0.9,
-        // });
-        // shaderCloud = new THREE.Points(bufferGeometry, material);
         shaderCloud = new THREE.Points(bufferGeometry, new THREE.ShaderMaterial({
             uniforms: {
                 size: { value: PARTICLE_SIZE },
@@ -104,6 +100,48 @@ export default function Home() {
         }));
 
         scene.scene.add(shaderCloud);
+    }
+
+    const generateHtmlLabel = (selectedPosition : THREE.Vector3, clickedPositions : THREE.Vector3[]) => {
+        let label = document.createElement('div');
+        label.className = 'label';
+        label.style.position = 'absolute';
+        let screenPosition = selectedPosition.project(scene.camera);
+        label.style.left = ((screenPosition.x + 1) * window.innerWidth / 2) + 10 + 'px';
+        label.style.top = ((- screenPosition.y + 1) * window.innerHeight / 2) + 10 + 'px';
+        label.textContent = `${clickedPositions.indexOf(selectedPosition)}-(${selectedPosition.x.toFixed(2)}, ${selectedPosition.y.toFixed(2)}, ${selectedPosition.z.toFixed(2)})`;
+        document.body.appendChild(label);
+    }
+
+    const generateTextGeometry = (selectedPosition : THREE.Vector3, clickedPositions : THREE.Vector3[]) => {
+        let loader = new FontLoader();
+        loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+            let textGeometry = new TextGeometry(`${clickedPositions.indexOf(selectedPosition)} - (${selectedPosition.x.toFixed(2)}, ${selectedPosition.y.toFixed(2)}, ${selectedPosition.z.toFixed(2)})`, {
+                font: font,
+                size: 0.05,
+                height: 0.05,
+            });
+            let textMaterial = new THREE.MeshBasicMaterial({ color: 0xab334b });
+            let textMesh = new THREE.Mesh(textGeometry, textMaterial);
+            textMesh.position.set(
+                selectedPosition.x + 0.1,
+                selectedPosition.y - 0.1,
+                selectedPosition.z + 0.1,
+            );
+            textMesh.lookAt(scene.camera.position);
+            scene.scene.add(textMesh);
+            labelStack.push(textMesh);
+        });
+    }
+
+    const undoClick = () => {
+        if(clickedSphereStack.length > 0) {
+            let lastClickedObject = clickedSphereStack.pop();
+            scene.scene.remove(lastClickedObject);
+            clickedPositions.pop();
+            let lastLabel = labelStack.pop();
+            scene.scene.remove(lastLabel);
+        }
     }
 
 
@@ -117,6 +155,7 @@ export default function Home() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let selectedSphere : THREE.Mesh | undefined;
+    
     window.addEventListener('mousemove', (event) => {
         if (event.target === scene.renderer.domElement) {
             event.preventDefault();
@@ -137,7 +176,6 @@ export default function Home() {
                         selectedSphere = new THREE.Mesh(
                             new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
                             shaderMaterial,
-                            // new THREE.MeshBasicMaterial({ color: 0xff0000 })
                         );
                         selectedSphere.position.set(
                             positions[INTERSECTED * 3],
@@ -150,6 +188,42 @@ export default function Home() {
                     INTERSECTED = undefined;
                 }
             }    
+        }
+    });
+
+    window.addEventListener('contextmenu', (event) => {
+        if (event.target === scene.renderer.domElement) {
+            event.preventDefault();
+            if (INTERSECTED !== undefined) {
+                let positions = shaderCloud.geometry.attributes.position.array;
+                let selectedPosition = new THREE.Vector3(
+                    positions[INTERSECTED * 3],
+                    positions[INTERSECTED * 3 + 1],
+                    positions[INTERSECTED * 3 + 2],
+                );
+                
+                clickedPositions.push(selectedPosition);
+
+                let clickedSphere = new THREE.Mesh(
+                    new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
+                    shaderMaterial,
+                );
+                clickedSphere.position.set(
+                    positions[INTERSECTED * 3],
+                    positions[INTERSECTED * 3 + 1],
+                    positions[INTERSECTED * 3 + 2],
+                );
+                scene.scene.add(clickedSphere);
+                clickedSphereStack.push(clickedSphere);
+                generateTextGeometry(selectedPosition, clickedPositions);
+            }
+        }
+    });
+
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'z') {
+            console.log('undo');
+            undoClick();
         }
     });
 

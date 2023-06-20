@@ -23,7 +23,6 @@ export default class SceneInit{
     public dirLight : any;
     public dragableObjects : any;
     public dragControls : any;
-    public pointClouds : THREE.Points[] = [];
     public shaderMaterial : any;
 
     constructor(canvasId : any, shaderMaterial : any) {
@@ -102,7 +101,7 @@ export default class SceneInit{
         this.scene.add(mesh);
 
         const axesHelper = new THREE.AxesHelper(10);
-        // this.scene.add(axesHelper);
+        this.scene.add(axesHelper);
         window.addEventListener('resize', () => this.onWindowResize(), false);        
     }
 
