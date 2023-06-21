@@ -1,11 +1,11 @@
 import './App.css';
-import AppRouter from './router/AppRouter';
+import Home from './views/Home';
 
 function App() {
-  
+  console.log("App loaded");
   return (
     <div>
-      <AppRouter/>
+      <Home/>
     </div>
   )
 }

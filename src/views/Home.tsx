@@ -37,8 +37,10 @@ export default function Home() {
   let INTERSECTED : number | undefined;
   let PARTICLE_SIZE : number;
   let clickedPositions : THREE.Vector3[] = [];
+  let allClickedPositions : THREE.Vector3[][] = [];
   let clickedSphereStack : THREE.Mesh[] = [];
   let labelStack : THREE.Mesh[] = [];
+
 
   const vertexShader = `
         uniform float size;
@@ -86,7 +88,6 @@ export default function Home() {
                 bufferSizes[i / 3] = PARTICLE_SIZE;
             }
         }
-        
         bufferGeometry.setAttribute('position', new THREE.BufferAttribute(bufferPositions, 3));
         bufferGeometry.setAttribute('color', new THREE.BufferAttribute(bufferColors, 3));
         bufferGeometry.setAttribute('size', new THREE.BufferAttribute(bufferSizes, 1));
@@ -119,9 +120,9 @@ export default function Home() {
             let textGeometry = new TextGeometry(`${clickedPositions.indexOf(selectedPosition)} - (${selectedPosition.x.toFixed(2)}, ${selectedPosition.y.toFixed(2)}, ${selectedPosition.z.toFixed(2)})`, {
                 font: font,
                 size: 0.05,
-                height: 0.05,
+                height: 0.01,
             });
-            let textMaterial = new THREE.MeshBasicMaterial({ color: 0xab334b });
+            let textMaterial = new THREE.MeshBasicMaterial({ color: 0xfff8f7 });
             let textMesh = new THREE.Mesh(textGeometry, textMaterial);
             textMesh.position.set(
                 selectedPosition.x + 0.1,
@@ -129,8 +130,9 @@ export default function Home() {
                 selectedPosition.z + 0.1,
             );
             textMesh.lookAt(scene.camera.position);
-            scene.scene.add(textMesh);
             labelStack.push(textMesh);
+            scene.scene.add(textMesh);
+            console.log('text added');
         });
     }
 
@@ -155,7 +157,6 @@ export default function Home() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let selectedSphere : THREE.Mesh | undefined;
-    
     window.addEventListener('mousemove', (event) => {
         if (event.target === scene.renderer.domElement) {
             event.preventDefault();
@@ -190,20 +191,18 @@ export default function Home() {
             }    
         }
     });
-
     window.addEventListener('contextmenu', (event) => {
+        console.log('right clicked');
         if (event.target === scene.renderer.domElement) {
             event.preventDefault();
             if (INTERSECTED !== undefined) {
                 let positions = shaderCloud.geometry.attributes.position.array;
-                let selectedPosition = new THREE.Vector3(
+                let selectedPosition = new THREE.Vector3( 
                     positions[INTERSECTED * 3],
                     positions[INTERSECTED * 3 + 1],
                     positions[INTERSECTED * 3 + 2],
                 );
-                
                 clickedPositions.push(selectedPosition);
-
                 let clickedSphere = new THREE.Mesh(
                     new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
                     shaderMaterial,
@@ -214,16 +213,48 @@ export default function Home() {
                     positions[INTERSECTED * 3 + 2],
                 );
                 scene.scene.add(clickedSphere);
+                console.log('sphere clicked');
                 clickedSphereStack.push(clickedSphere);
                 generateTextGeometry(selectedPosition, clickedPositions);
             }
+            else {
+                INTERSECTED = undefined;
+            }
         }
     });
-
+    
     window.addEventListener('keydown', (event) => {
         if (event.key === 'z') {
             console.log('undo');
             undoClick();
+        }
+    });
+
+    window.addEventListener('keydown', (event) => {
+        event.preventDefault();
+        if (event.key === 'e') {
+            if (clickedPositions.length > 0) { 
+                if (confirm('Are you sure to extract all vertices for this polygon?')) {
+                    allClickedPositions.push(clickedPositions);
+                    alert(`polygon added, index is ${allClickedPositions.indexOf(clickedPositions)}, now ${allClickedPositions.length} polygons in total`)
+                    clickedPositions = [];   
+                    for (let i = 0; i < clickedSphereStack.length; i++) {
+                        scene.scene.remove(clickedSphereStack[i]);
+                    }
+                    clickedSphereStack = [];
+                    for (let i = 0; i < labelStack.length; i++) {
+                        scene.scene.remove(labelStack[i]);
+                    }
+                    labelStack = [];
+                    console.log(allClickedPositions);
+                }
+                else {
+                    console.log('Extracting canceled');
+                }
+            }
+            else {
+                console.log('No point clicked');
+            }
         }
     });
 
@@ -232,60 +263,98 @@ export default function Home() {
     };
 
   }, []);
-
+    let uploadedFileName: string = '';
+    let outputFileName: string = '';   
+    
     const handleFileUpload = (event : any) => {
         const file = event.target.files[0];
         if (file) {
-        const fileExtension = file.name.split('.').pop().toLowerCase();
-        console.log(fileExtension);
-        const reader = new FileReader();
-        reader.onload = () => {
-            let loader;
-            if (fileExtension === 'pcd') {
-                loader = new PCDLoader();
-                loader.load(reader.result as string, (obj) => {
-                        loadedPointCloud = new THREE.Points(obj.geometry, obj.material);
-                        generatePointCloud(loadedPointCloud);
-                    }
-                );
-            } else if (fileExtension === 'obj') {
-                loader = new OBJLoader();
-                loader.load(reader.result as string, (obj) => {
-                        let loadedMesh = obj;
-                        loadedMesh.position.set(0, 0, 0);
-                        loadedMesh.castShadow = true;
-                        loadedMesh.receiveShadow = true;
-                        scene.dragableObjects.push(loadedMesh);
-                        scene.scene.add(loadedMesh);
-                    }
-                );
-            } else {
-                console.log('Unsupported file format');
-                return;
-            }
-        };
-        reader.readAsDataURL(file);
+            uploadedFileName = file.name;
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            console.log(fileExtension);
+            const reader = new FileReader();
+            reader.onload = () => {
+                let loader;
+                if (fileExtension === 'pcd') {
+                    loader = new PCDLoader();
+                    loader.load(reader.result as string, (obj) => {
+                            loadedPointCloud = new THREE.Points(obj.geometry, obj.material);
+                            generatePointCloud(loadedPointCloud);
+                            console.log('point cloud loaded');
+                        }
+                    );
+                } else if (fileExtension === 'obj') {
+                    loader = new OBJLoader();
+                    loader.load(reader.result as string, (obj) => {
+                            let loadedMesh = obj;
+                            loadedMesh.position.set(0, 0, 0);
+                            loadedMesh.castShadow = true;
+                            loadedMesh.receiveShadow = true;
+                            scene.dragableObjects.push(loadedMesh);
+                            scene.scene.add(loadedMesh);
+                        }
+                    );
+                } else {
+                    console.log('Unsupported file format');
+                    return;
+                }
+            };
+            outputFileName = uploadedFileName + "-polygon.txt";
+            reader.readAsDataURL(file);
         }
     };
   
-    const handleClick = () => {
+    const handleUploadClick = () => {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.obj, .pcd';
         input.addEventListener('change', handleFileUpload);
         input.click();
     };
+    
+    
 
+    const download = (filename : string, text : string) => {
+        let element = document.createElement('a');
+        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
+      
+        element.style.display = 'none';
+        document.body.appendChild(element);
+      
+        element.click();
+      
+        document.body.removeChild(element);
+      }
+
+    const handlePolygonExtractClick = () => {
+        let data = "";
+        for(let polygon of allClickedPositions) {
+            for(let point of polygon) {
+                data += point.x + " " + point.y + " " + point.z + "\n";
+            }
+            data += "\n"; // add an empty line between polygons
+        }
+        download(outputFileName, data);
+    }
 
   return ( 
       <div className="RendererCanvas flex flex-col justify-center items-center">
           <div className="CanvasContainer relative">
               <canvas id="RendererCanvas" />
           </div>
+            <div className="absolute bottom-4 left-4">
+                <button
+                    className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                    onClick={() => {handlePolygonExtractClick()}}
+                >
+                    Extract Polygons
+                </button>
+            </div>
           <div className="absolute bottom-4 right-4">
             <button
                 className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
-                onClick={handleClick}
+                onClick={handleUploadClick}
             >
                 Upload
             </button>
