@@ -148,6 +148,7 @@ export default function Home() {
 
 
   useEffect(() => {
+
     scene.initialize();
     scene.animate(); 
     const gui = new GUI();
@@ -157,13 +158,16 @@ export default function Home() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let selectedSphere : THREE.Mesh | undefined;
+
     window.addEventListener('mousemove', (event) => {
+
         if (event.target === scene.renderer.domElement) {
             event.preventDefault();
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, scene.camera);
             raycaster.params.Points.threshold = 0.05;
+
             if (shaderCloud) {
                 const intersects = raycaster.intersectObject(shaderCloud, false);
                 if (intersects.length > 0) {
@@ -191,7 +195,9 @@ export default function Home() {
             }    
         }
     });
+
     window.addEventListener('contextmenu', (event) => {
+        
         console.log('right clicked');
         if (event.target === scene.renderer.domElement) {
             event.preventDefault();
@@ -264,12 +270,12 @@ export default function Home() {
 
   }, []);
     let uploadedFileName: string = '';
-    let outputFileName: string = '';   
+    let outputFileName: string = 'polygon.txt';   
     
     const handleFileUpload = (event : any) => {
         const file = event.target.files[0];
         if (file) {
-            uploadedFileName = file.name;
+            // uploadedFileName = file.name.split('.').shift();
             const fileExtension = file.name.split('.').pop().toLowerCase();
             console.log(fileExtension);
             const reader = new FileReader();
@@ -299,7 +305,6 @@ export default function Home() {
                     return;
                 }
             };
-            outputFileName = uploadedFileName + "-polygon.txt";
             reader.readAsDataURL(file);
         }
     };
