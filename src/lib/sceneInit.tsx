@@ -100,8 +100,8 @@ export default class SceneInit{
         mesh.receiveShadow = true;
         this.scene.add(mesh);
 
-        const axesHelper = new THREE.AxesHelper(10);
-        this.scene.add(axesHelper);
+        // const axesHelper = new THREE.AxesHelper(10);
+        // this.scene.add(axesHelper);
         window.addEventListener('resize', () => this.onWindowResize(), false);        
     }
 

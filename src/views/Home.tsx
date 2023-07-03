@@ -10,6 +10,7 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 
 export default function Home() {
+
   let shaderMaterial = new THREE.ShaderMaterial({
         uniforms: {
             u_time: { value: 0.0 },
@@ -99,7 +100,7 @@ export default function Home() {
             fragmentShader: fragmentShader,
             alphaTest: 0.9,
         }));
-
+        
         scene.scene.add(shaderCloud);
     }
 
@@ -146,14 +147,39 @@ export default function Home() {
         }
     }
 
+    const settings = {
+        showPoints: true,
+        showSemantic: true,
+        showAxis: false,
+    };
 
   useEffect(() => {
 
     scene.initialize();
     scene.animate(); 
+
+    const axesHelper = new THREE.AxesHelper(10);
     const gui = new GUI();
     const lightFolder = gui.addFolder('Light');
     lightFolder.add(scene.dirLight, 'intensity', 0, 2);
+
+    gui.add(settings, 'showPoints').name('Cloud').onChange((value : any) => { 
+        if (shaderCloud) {
+            shaderCloud.visible = value;
+        }
+    });
+
+    // gui.add(settings, 'showSemantic').name('Semantic').onChange((value : any) => {
+        
+    // });
+
+    gui.add(settings, 'showAxis').name('Axis').onChange((value : any) => {
+        if (value) {
+            scene.scene.add(axesHelper);
+        } else {
+            scene.scene.remove(axesHelper);
+        }
+    });
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
