@@ -296,12 +296,12 @@ export default function Home() {
 
   }, []);
     let uploadedFileName: string = '';
-    let outputFileName: string = 'polygon.txt';   
+    let outputFileName: string = '';   
     
     const handleFileUpload = (event : any) => {
         const file = event.target.files[0];
         if (file) {
-            // uploadedFileName = file.name.split('.').shift();
+            uploadedFileName = file.name.split('.').shift();
             const fileExtension = file.name.split('.').pop().toLowerCase();
             console.log(fileExtension);
             const reader = new FileReader();
@@ -331,6 +331,7 @@ export default function Home() {
                     return;
                 }
             };
+            outputFileName ='polygon_' + uploadedFileName + '.txt';
             reader.readAsDataURL(file);
         }
     };
