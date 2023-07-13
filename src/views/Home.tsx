@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import SceneInit from '../lib/sceneInit';
 import * as THREE from 'three'; 
 import { GUI } from 'lil-gui';
@@ -43,7 +43,7 @@ export default function Home() {
   let labelStack : THREE.Mesh[] = [];
 
 
-  const vertexShader = `
+    const vertexShader = `
         uniform float size;
         attribute vec3 color;
         varying vec3 vColor;
@@ -153,148 +153,160 @@ export default function Home() {
         showAxis: false,
     };
 
-  useEffect(() => {
+    const [distance, setDistance] = useState<number>(0);
 
-    scene.initialize();
-    scene.animate(); 
+    const computeDistance = (point1 : THREE.Vector3, point2 : THREE.Vector3) => {
+        return Math.sqrt(Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2) + Math.pow(point1.z - point2.z, 2));
+    }
 
-    const axesHelper = new THREE.AxesHelper(10);
-    const gui = new GUI();
-    const lightFolder = gui.addFolder('Light');
-    lightFolder.add(scene.dirLight, 'intensity', 0, 2);
+    useEffect(() => {
 
-    gui.add(settings, 'showPoints').name('Cloud').onChange((value : any) => { 
-        if (shaderCloud) {
-            shaderCloud.visible = value;
-        }
-    });
+        scene.initialize();
+        scene.animate(); 
 
-    // gui.add(settings, 'showSemantic').name('Semantic').onChange((value : any) => {
-        
-    // });
+        const axesHelper = new THREE.AxesHelper(10);
+        const gui = new GUI();
+        const lightFolder = gui.addFolder('Light');
+        lightFolder.add(scene.dirLight, 'intensity', 0, 2);
 
-    gui.add(settings, 'showAxis').name('Axis').onChange((value : any) => {
-        if (value) {
-            scene.scene.add(axesHelper);
-        } else {
-            scene.scene.remove(axesHelper);
-        }
-    });
-
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    let selectedSphere : THREE.Mesh | undefined;
-
-    window.addEventListener('mousemove', (event) => {
-
-        if (event.target === scene.renderer.domElement) {
-            event.preventDefault();
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, scene.camera);
-            raycaster.params.Points.threshold = 0.05;
-
+        gui.add(settings, 'showPoints').name('Cloud').onChange((value : any) => { 
             if (shaderCloud) {
-                const intersects = raycaster.intersectObject(shaderCloud, false);
-                if (intersects.length > 0) {
-                    let positions = shaderCloud.geometry.attributes.position.array;
-                    let intersect = intersects[0];
-                    INTERSECTED = intersect.index;
-                    if (INTERSECTED !== undefined) {
-                        if (selectedSphere) {
-                            scene.scene.remove(selectedSphere);
+                shaderCloud.visible = value;
+            }
+        });
+
+        // gui.add(settings, 'showSemantic').name('Semantic').onChange((value : any) => {
+            
+        // });
+
+        gui.add(settings, 'showAxis').name('Axis').onChange((value : any) => {
+            if (value) {
+                scene.scene.add(axesHelper);
+            } else {
+                scene.scene.remove(axesHelper);
+            }
+        });
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let selectedSphere : THREE.Mesh | undefined;
+
+        window.addEventListener('mousemove', (event) => {
+
+            if (event.target === scene.renderer.domElement) {
+                event.preventDefault();
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, scene.camera);
+                raycaster.params.Points.threshold = 0.05;
+
+                if (shaderCloud) {
+                    const intersects = raycaster.intersectObject(shaderCloud, false);
+                    if (intersects.length > 0) {
+                        let positions = shaderCloud.geometry.attributes.position.array;
+                        let intersect = intersects[0];
+                        INTERSECTED = intersect.index;
+                        if (INTERSECTED !== undefined) {
+                            if (selectedSphere) {
+                                scene.scene.remove(selectedSphere);
+                            }
+                            selectedSphere = new THREE.Mesh(
+                                new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
+                                shaderMaterial,
+                            );
+                            selectedSphere.position.set(
+                                positions[INTERSECTED * 3],
+                                positions[INTERSECTED * 3 + 1],
+                                positions[INTERSECTED * 3 + 2],
+                            );
+                            scene.scene.add(selectedSphere);
                         }
-                        selectedSphere = new THREE.Mesh(
-                            new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
-                            shaderMaterial,
-                        );
-                        selectedSphere.position.set(
-                            positions[INTERSECTED * 3],
-                            positions[INTERSECTED * 3 + 1],
-                            positions[INTERSECTED * 3 + 2],
-                        );
-                        scene.scene.add(selectedSphere);
+                    } else {
+                        INTERSECTED = undefined;
                     }
-                } else {
-                    INTERSECTED = undefined;
-                }
-            }    
-        }
-    });
-
-    window.addEventListener('contextmenu', (event) => {
-        
-        console.log('right clicked');
-        if (event.target === scene.renderer.domElement) {
-            event.preventDefault();
-            if (INTERSECTED !== undefined) {
-                let positions = shaderCloud.geometry.attributes.position.array;
-                let selectedPosition = new THREE.Vector3( 
-                    positions[INTERSECTED * 3],
-                    positions[INTERSECTED * 3 + 1],
-                    positions[INTERSECTED * 3 + 2],
-                );
-                clickedPositions.push(selectedPosition);
-                let clickedSphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
-                    shaderMaterial,
-                );
-                clickedSphere.position.set(
-                    positions[INTERSECTED * 3],
-                    positions[INTERSECTED * 3 + 1],
-                    positions[INTERSECTED * 3 + 2],
-                );
-                scene.scene.add(clickedSphere);
-                console.log('sphere clicked');
-                clickedSphereStack.push(clickedSphere);
-                generateTextGeometry(selectedPosition, clickedPositions);
+                }    
             }
-            else {
-                INTERSECTED = undefined;
-            }
-        }
-    });
-    
-    window.addEventListener('keydown', (event) => {
-        if (event.key === 'z') {
-            console.log('undo');
-            undoClick();
-        }
-    });
+        });
 
-    window.addEventListener('keydown', (event) => {
-        event.preventDefault();
-        if (event.key === 'e') {
-            if (clickedPositions.length > 0) { 
-                if (confirm('Are you sure to extract all vertices for this polygon?')) {
-                    allClickedPositions.push(clickedPositions);
-                    alert(`polygon added, index is ${allClickedPositions.indexOf(clickedPositions)}, now ${allClickedPositions.length} polygons in total`)
-                    clickedPositions = [];   
-                    for (let i = 0; i < clickedSphereStack.length; i++) {
-                        scene.scene.remove(clickedSphereStack[i]);
+        window.addEventListener('contextmenu', (event) => {
+            
+            console.log('right clicked');
+            if (event.target === scene.renderer.domElement) {
+                event.preventDefault();
+                if (INTERSECTED !== undefined) {
+                    let positions = shaderCloud.geometry.attributes.position.array;
+                    let selectedPosition = new THREE.Vector3( 
+                        positions[INTERSECTED * 3],
+                        positions[INTERSECTED * 3 + 1],
+                        positions[INTERSECTED * 3 + 2],
+                    );
+                    clickedPositions.push(selectedPosition);
+                    if (clickedPositions[0] && clickedPositions[1]) {
+                        setDistance(computeDistance(clickedPositions[0], clickedPositions[1]));
                     }
-                    clickedSphereStack = [];
-                    for (let i = 0; i < labelStack.length; i++) {
-                        scene.scene.remove(labelStack[i]);
-                    }
-                    labelStack = [];
-                    console.log(allClickedPositions);
+
+                    let clickedSphere = new THREE.Mesh(
+                        new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
+                        shaderMaterial,
+                    );
+                    clickedSphere.position.set(
+                        positions[INTERSECTED * 3],
+                        positions[INTERSECTED * 3 + 1],
+                        positions[INTERSECTED * 3 + 2],
+                    );
+                    scene.scene.add(clickedSphere);
+                    console.log('sphere clicked');
+                    clickedSphereStack.push(clickedSphere);
+                    generateTextGeometry(selectedPosition, clickedPositions);
                 }
                 else {
-                    console.log('Extracting canceled');
+                    INTERSECTED = undefined;
                 }
             }
-            else {
-                console.log('No point clicked');
+        });
+    
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'z') {
+                console.log('undo');
+                undoClick();
             }
-        }
-    });
+        });
 
-    return () => {
-        gui.destroy();
-    };
+        window.addEventListener('keydown', (event) => {
+            event.preventDefault();
+            if (event.key === 'e') {
+                if (clickedPositions.length > 0) { 
+                    if (confirm('Are you sure to extract all vertices for this polygon?')) {
+                        allClickedPositions.push(clickedPositions);
+                        alert(`polygon added, index is ${allClickedPositions.indexOf(clickedPositions)}, now ${allClickedPositions.length} polygons in total`)
+                        clickedPositions = [];   
+                        for (let i = 0; i < clickedSphereStack.length; i++) {
+                            scene.scene.remove(clickedSphereStack[i]);
+                        }
+                        clickedSphereStack = [];
+                        for (let i = 0; i < labelStack.length; i++) {
+                            scene.scene.remove(labelStack[i]);
+                        }
+                        labelStack = [];
+                        console.log(allClickedPositions);
+                    }
+                    else {
+                        console.log('Extracting canceled');
+                    }
+                }
+                else {
+                    console.log('No point clicked');
+                }
+            }
+        });
 
-  }, []);
+        return () => {
+            gui.destroy();
+        };
+
+    }, []);
+
+  
     let uploadedFileName: string = '';
     let outputFileName: string = '';   
     
@@ -370,11 +382,11 @@ export default function Home() {
         download(outputFileName, data);
     }
 
-  return ( 
-      <div className="RendererCanvas flex flex-col justify-center items-center">
-          <div className="CanvasContainer relative">
-              <canvas id="RendererCanvas" />
-          </div>
+    return ( 
+        <div className="RendererCanvas flex flex-col justify-center items-center">
+            <div className="CanvasContainer relative">
+                <canvas id="RendererCanvas" />
+            </div>
             <div className="absolute bottom-4 left-4">
                 <button
                     className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
@@ -383,14 +395,21 @@ export default function Home() {
                     Extract Polygons
                 </button>
             </div>
-          <div className="absolute bottom-4 right-4">
-            <button
-                className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
-                onClick={handleUploadClick}
-            >
-                Upload
-            </button>
-          </div>
-      </div>
+            <div className="absolute bottom-4 right-4">
+                <button
+                    className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                    onClick={handleUploadClick}
+                >
+                    Upload
+                </button>
+            </div>
+            <div className="absolute top-1/2 right-4">
+                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                    <p className="text-white">Distance: {distance.toFixed(2)}</p>
+                </div>
+             </div>
+
+
+        </div>
     );
 }
