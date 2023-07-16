@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import SceneInit from '../lib/sceneInit';
 import * as THREE from 'three'; 
+import '../styles/Home.css';
+
 import { GUI } from 'lil-gui';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
@@ -11,7 +13,7 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 export default function Home() {
 
-  let shaderMaterial = new THREE.ShaderMaterial({
+    let shaderMaterial = new THREE.ShaderMaterial({
         uniforms: {
             u_time: { value: 0.0 },
         },
@@ -31,16 +33,19 @@ export default function Home() {
             void main() {
                 gl_FragColor = vec4(vColor, 1.0);
             }`,
-   })
-  const scene = new SceneInit('RendererCanvas', shaderMaterial);
-  let loadedPointCloud : THREE.Points;
-  let shaderCloud : THREE.Points;
-  let INTERSECTED : number | undefined;
-  let PARTICLE_SIZE : number;
-  let clickedPositions : THREE.Vector3[] = [];
-  let allClickedPositions : THREE.Vector3[][] = [];
-  let clickedSphereStack : THREE.Mesh[] = [];
-  let labelStack : THREE.Mesh[] = [];
+    })
+
+    const scene = new SceneInit('RendererCanvas', shaderMaterial);
+    let loadedPointCloud : THREE.Points;
+    let shaderCloud : THREE.Points;
+    let INTERSECTED : number | undefined;
+    let PARTICLE_SIZE : number;
+    let clickedPositions : THREE.Vector3[] = [];
+    let allClickedPositions : THREE.Vector3[][] = [];
+    let clickedSphereStack : THREE.Mesh[] = [];
+    let labelStack : THREE.Mesh[] = [];
+
+    const [loading, setLoading] = useState<boolean>(false);
 
 
     const vertexShader = `
@@ -64,15 +69,18 @@ export default function Home() {
         }
     `;
 
-   const generatePointCloud = (pointCloud : THREE.Points) => {
+    const generatePointCloud = (pointCloud : THREE.Points) => {
+        console.log('loading point cloud: ' + loading);
+        
         let geometry = pointCloud.geometry;
         let attributes = geometry.attributes;
         let positions = attributes.position.array;
-        PARTICLE_SIZE = 3.0;
+        PARTICLE_SIZE = 2.5;
         let bufferGeometry = new THREE.BufferGeometry();
         let bufferPositions = new Float32Array(positions.length);
         let bufferColors = new Float32Array(positions.length);
         let bufferSizes = new Float32Array(positions.length / 3);
+
         if (attributes.color !== undefined) {
             let colors = attributes.color.array;
             bufferColors = new Float32Array(colors.length);
@@ -89,6 +97,7 @@ export default function Home() {
                 bufferSizes[i / 3] = PARTICLE_SIZE;
             }
         }
+
         bufferGeometry.setAttribute('position', new THREE.BufferAttribute(bufferPositions, 3));
         bufferGeometry.setAttribute('color', new THREE.BufferAttribute(bufferColors, 3));
         bufferGeometry.setAttribute('size', new THREE.BufferAttribute(bufferSizes, 1));
@@ -100,7 +109,28 @@ export default function Home() {
             fragmentShader: fragmentShader,
             alphaTest: 0.9,
         }));
+        shaderCloud.up.set(0, 0, 1);
         
+        let boundingBox = new THREE.Box3().setFromObject(shaderCloud);
+        let center = boundingBox.getCenter(new THREE.Vector3());
+        console.log('center is: ' + center);
+
+        scene.camera.position.copy(center);
+        scene.camera.position.x += 10;
+        scene.camera.position.y += 10;
+        scene.camera.position.z += 15;
+        // scene.camera.rotation.x = -Math.PI / 2;
+        scene.camera.lookAt(center);
+        scene.camera.updateProjectionMatrix();
+        scene.camera.updateMatrixWorld();
+
+        
+        scene.controls.target.copy(center);
+        scene.controls.update();
+
+        scene.objAxis.position.copy(center);
+        scene.scene.add(scene.objAxis);
+
         scene.scene.add(shaderCloud);
     }
 
@@ -130,6 +160,7 @@ export default function Home() {
                 selectedPosition.y - 0.1,
                 selectedPosition.z + 0.1,
             );
+            textMesh.up.set(0, 0, 1);
             textMesh.lookAt(scene.camera.position);
             labelStack.push(textMesh);
             scene.scene.add(textMesh);
@@ -150,7 +181,8 @@ export default function Home() {
     const settings = {
         showPoints: true,
         showSemantic: true,
-        showAxis: false,
+        showAxis: true,
+        useShaderMaterial: true,
     };
 
     const [distance, setDistance] = useState<number>(0);
@@ -179,11 +211,12 @@ export default function Home() {
             
         // });
 
-        gui.add(settings, 'showAxis').name('Axis').onChange((value : any) => {
+
+        gui.add(settings, 'useShaderMaterial').name('Use shader mtl').onChange((value : any) => {
             if (value) {
-                scene.scene.add(axesHelper);
+                settings.useShaderMaterial = true;
             } else {
-                scene.scene.remove(axesHelper);
+                settings.useShaderMaterial = false;
             }
         });
 
@@ -198,7 +231,7 @@ export default function Home() {
                 mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                 mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
                 raycaster.setFromCamera(mouse, scene.camera);
-                raycaster.params.Points.threshold = 0.05;
+                raycaster.params.Points.threshold = 0.02;
 
                 if (shaderCloud) {
                     const intersects = raycaster.intersectObject(shaderCloud, false);
@@ -210,10 +243,18 @@ export default function Home() {
                             if (selectedSphere) {
                                 scene.scene.remove(selectedSphere);
                             }
-                            selectedSphere = new THREE.Mesh(
-                                new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
-                                shaderMaterial,
-                            );
+                            if (settings.useShaderMaterial) {
+                                selectedSphere = new THREE.Mesh(
+                                    new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
+                                    shaderMaterial,
+                                );
+                            } else {
+                                selectedSphere = new THREE.Mesh(
+                                    new THREE.SphereGeometry(PARTICLE_SIZE / 200, 32, 32),
+                                    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+                                );
+                            }
+                    
                             selectedSphere.position.set(
                                 positions[INTERSECTED * 3],
                                 positions[INTERSECTED * 3 + 1],
@@ -310,9 +351,10 @@ export default function Home() {
     let uploadedFileName: string = '';
     let outputFileName: string = '';   
     
-    const handleFileUpload = (event : any) => {
+    const handleFileUpload = async (event : any) => {
         const file = event.target.files[0];
         if (file) {
+            // setLoading(true);
             uploadedFileName = file.name.split('.').shift();
             const fileExtension = file.name.split('.').pop().toLowerCase();
             console.log(fileExtension);
@@ -342,10 +384,13 @@ export default function Home() {
                     console.log('Unsupported file format');
                     return;
                 }
+                outputFileName ='polygon_' + uploadedFileName + '.txt';
+                // setLoading(false);
             };
-            outputFileName ='polygon_' + uploadedFileName + '.txt';
+            
             reader.readAsDataURL(file);
         }
+        
     };
   
     const handleUploadClick = () => {
@@ -387,6 +432,22 @@ export default function Home() {
             <div className="CanvasContainer relative">
                 <canvas id="RendererCanvas" />
             </div>
+            {
+                loading 
+                ? 
+                (<div className="text-center">
+                    <div role="status">
+                        <svg aria-hidden="true" className="w-8 h-8 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                            <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                        </svg>
+                        <span className="sr-only">Loading...</span>
+                    </div>
+                </div>)
+                : 
+                null
+            }
+
             <div className="absolute bottom-4 left-4">
                 <button
                     className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
@@ -408,8 +469,6 @@ export default function Home() {
                     <p className="text-white">Distance: {distance.toFixed(2)}</p>
                 </div>
              </div>
-
-
         </div>
     );
 }

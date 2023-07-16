@@ -24,7 +24,7 @@ export default class SceneInit{
     public dragableObjects : any;
     public dragControls : any;
     public shaderMaterial : any;
-
+    public objAxis : any;
     constructor(canvasId : any, shaderMaterial : any) {
         this.scene = undefined;
         this.camera = undefined;
@@ -47,6 +47,8 @@ export default class SceneInit{
         this.dragableObjects = [];
         this.dragControls = undefined;
         this.shaderMaterial = shaderMaterial;
+
+        this.objAxis = undefined;
     }
 
     initialize() {
@@ -56,12 +58,12 @@ export default class SceneInit{
             1,
             10000
         );
-        this.camera.position.set(10, 10, 15);
-
+        this.camera.position.set(15, 15, 15);
+        
         this.clock = new THREE.Clock();
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color( 0xa0a0a0 );
-		this.scene.fog = new THREE.Fog( 0xa0a0a0, 15, 80 );
+		this.scene.fog = new THREE.Fog( 0xa0a0a0, 30, 100 );
 
         const canvas : any = document.getElementById(this.canvasId);
         this.renderer = new THREE.WebGLRenderer({
@@ -73,6 +75,7 @@ export default class SceneInit{
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
 
+        this.camera.up.set(0, 0, 1);
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
 
@@ -86,22 +89,15 @@ export default class SceneInit{
         this.dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
         this.dirLight.position.set(3, 10, 10);
         this.dirLight.castShadow = true;
-        this.dirLight.shadow.camera.top = 2;
-        this.dirLight.shadow.camera.bottom = - 2;
-        this.dirLight.shadow.camera.left = - 2;
-        this.dirLight.shadow.camera.right = 2;
-        this.dirLight.shadow.camera.near = 0.1;
-        this.dirLight.shadow.camera.far = 40;
         this.scene.add(this.dirLight);
 
         const mesh = new THREE.Mesh( new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({color: 0x393b39, depthWrite: false}));
-        mesh.translateY(-5.0);
-        mesh.rotation.x = - Math.PI / 2;
+        mesh.translateZ(-5.0);
         mesh.receiveShadow = true;
         this.scene.add(mesh);
-
-        // const axesHelper = new THREE.AxesHelper(10);
-        // this.scene.add(axesHelper);
+        
+        this.objAxis = new THREE.AxesHelper(10);
+        this.scene.add(this.objAxis);
         window.addEventListener('resize', () => this.onWindowResize(), false);        
     }
 
