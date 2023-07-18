@@ -6,6 +6,7 @@ import '../styles/Home.css';
 import { GUI } from 'lil-gui';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
+import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
@@ -45,8 +46,11 @@ export default function Home() {
     let clickedSphereStack : THREE.Mesh[] = [];
     let labelStack : THREE.Mesh[] = [];
 
-    const [loading, setLoading] = useState<boolean>(false);
+    let cloudToCompare : THREE.Points;
 
+    let firstCloudCenter : THREE.Vector3 = new THREE.Vector3();
+    let secondCloudCenter : THREE.Vector3 = new THREE.Vector3();
+    let offset : THREE.Vector3 = new THREE.Vector3();
 
     const vertexShader = `
         uniform float size;
@@ -70,8 +74,7 @@ export default function Home() {
     `;
 
     const generatePointCloud = (pointCloud : THREE.Points) => {
-        console.log('loading point cloud: ' + loading);
-        
+
         let geometry = pointCloud.geometry;
         let attributes = geometry.attributes;
         let positions = attributes.position.array;
@@ -109,29 +112,113 @@ export default function Home() {
             fragmentShader: fragmentShader,
             alphaTest: 0.9,
         }));
+
         shaderCloud.up.set(0, 0, 1);
+        shaderCloud.name = 'firstCloud';
+        console.log(shaderCloud.name);
         
         let boundingBox = new THREE.Box3().setFromObject(shaderCloud);
-        let center = boundingBox.getCenter(new THREE.Vector3());
-        console.log('center is: ' + center);
+        firstCloudCenter = boundingBox.getCenter(new THREE.Vector3());
 
-        scene.camera.position.copy(center);
+        scene.camera.position.copy(firstCloudCenter);
         scene.camera.position.x += 10;
         scene.camera.position.y += 10;
-        scene.camera.position.z += 15;
-        // scene.camera.rotation.x = -Math.PI / 2;
-        scene.camera.lookAt(center);
+        scene.camera.position.z += 5;
+        scene.camera.lookAt(firstCloudCenter);
         scene.camera.updateProjectionMatrix();
         scene.camera.updateMatrixWorld();
-
         
-        scene.controls.target.copy(center);
+        scene.controls.target.copy(firstCloudCenter);
         scene.controls.update();
 
-        scene.objAxis.position.copy(center);
+        scene.objAxis.position.copy(firstCloudCenter);
         scene.scene.add(scene.objAxis);
 
         scene.scene.add(shaderCloud);
+        setFirstCloudLoaded(true);
+
+    }
+
+    const generateSecondCloud = (pointCloud : THREE.Points) => {
+
+        let boundingBox2 = new THREE.Box3().setFromObject(pointCloud);
+        secondCloudCenter = boundingBox2.getCenter(new THREE.Vector3());
+        offset.subVectors(firstCloudCenter, secondCloudCenter);
+
+        let geometry = pointCloud.geometry;
+        let attributes = geometry.attributes;
+        let positions = attributes.position.array;
+        PARTICLE_SIZE = 2.5;
+        let bufferGeometry = new THREE.BufferGeometry();
+        let bufferPositions = new Float32Array(positions.length);
+        let bufferColors = new Float32Array(positions.length);
+        let bufferSizes = new Float32Array(positions.length / 3);
+
+        if (attributes.color !== undefined) {
+            let colors = attributes.color.array;
+            bufferColors = new Float32Array(colors.length);
+            for (let i = 0; i < positions.length; i++) {
+                if (i % 3 === 0) {
+                    bufferPositions[i] = positions[i] + offset.x + 10;
+                } else if (i % 3 === 1) {
+                    bufferPositions[i] = positions[i] + offset.y + 10;
+                } else {
+                    bufferPositions[i] = positions[i] + offset.z;
+                }
+                bufferColors[i] = colors[i];
+                bufferSizes[i / 3] = PARTICLE_SIZE;
+            }
+        } else {
+            bufferColors = new Float32Array(positions.length);
+            for (let i = 0; i < bufferColors.length; i++) {
+                bufferPositions[i] = positions[i];
+                bufferColors[i] = 1.0;
+                bufferSizes[i / 3] = PARTICLE_SIZE;
+            }
+        }
+
+        bufferGeometry.setAttribute('position', new THREE.BufferAttribute(bufferPositions, 3));
+        bufferGeometry.setAttribute('color', new THREE.BufferAttribute(bufferColors, 3));
+        bufferGeometry.setAttribute('size', new THREE.BufferAttribute(bufferSizes, 1));
+        cloudToCompare = new THREE.Points(bufferGeometry, new THREE.ShaderMaterial({
+            uniforms: {
+                size: { value: PARTICLE_SIZE },
+            },
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            alphaTest: 0.9,
+        }));
+
+        cloudToCompare.up.set(0, 0, 1);
+        cloudToCompare.name = 'secondCloud';
+
+        // let group = new THREE.Group();
+        // group.add(cloudToCompare);
+        // group.add(shaderCloud);
+        
+        let midpoint = new THREE.Vector3();
+        midpoint.addVectors(firstCloudCenter, secondCloudCenter);
+        midpoint.divideScalar(2);
+        console.log('scene is: ' + scene.scene);
+        
+        scene.camera.position.copy(midpoint);
+        scene.camera.position.x += 10;
+        scene.camera.position.y += 10;
+        scene.camera.position.z += 5;
+
+        scene.camera.lookAt(midpoint);
+        scene.camera.updateProjectionMatrix();
+        scene.camera.updateMatrixWorld();
+
+        scene.controls.target.copy(midpoint);
+        scene.controls.update();
+
+        scene.objAxis.position.copy(midpoint);
+        scene.scene.add(scene.objAxis);
+
+        // scene.scene.add(group);
+        scene.scene.add(cloudToCompare);
+
     }
 
     const generateHtmlLabel = (selectedPosition : THREE.Vector3, clickedPositions : THREE.Vector3[]) => {
@@ -164,7 +251,6 @@ export default function Home() {
             textMesh.lookAt(scene.camera.position);
             labelStack.push(textMesh);
             scene.scene.add(textMesh);
-            console.log('text added');
         });
     }
 
@@ -186,6 +272,7 @@ export default function Home() {
     };
 
     const [distance, setDistance] = useState<number>(0);
+    const [firstCloudLoaded, setFirstCloudLoaded] = useState<boolean>(false);
 
     const computeDistance = (point1 : THREE.Vector3, point2 : THREE.Vector3) => {
         return Math.sqrt(Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2) + Math.pow(point1.z - point2.z, 2));
@@ -196,7 +283,6 @@ export default function Home() {
         scene.initialize();
         scene.animate(); 
 
-        const axesHelper = new THREE.AxesHelper(10);
         const gui = new GUI();
         const lightFolder = gui.addFolder('Light');
         lightFolder.add(scene.dirLight, 'intensity', 0, 2);
@@ -271,7 +357,6 @@ export default function Home() {
 
         window.addEventListener('contextmenu', (event) => {
             
-            console.log('right clicked');
             if (event.target === scene.renderer.domElement) {
                 event.preventDefault();
                 if (INTERSECTED !== undefined) {
@@ -351,11 +436,12 @@ export default function Home() {
     let uploadedFileName: string = '';
     let outputFileName: string = '';   
     
-    const handleFileUpload = async (event : any) => {
+    const handleFileUpload = (event : any) => {
         const file = event.target.files[0];
         if (file) {
             // setLoading(true);
             uploadedFileName = file.name.split('.').shift();
+            console.log(uploadedFileName);
             const fileExtension = file.name.split('.').pop().toLowerCase();
             console.log(fileExtension);
             const reader = new FileReader();
@@ -369,6 +455,18 @@ export default function Home() {
                             console.log('point cloud loaded');
                         }
                     );
+                } else if (fileExtension === 'ply') {
+
+                    loader = new PLYLoader();
+                    if (fileExtension === 'pcd') {
+                        loader = new PCDLoader();
+                        loader.load(reader.result as string, (obj) => {
+                                loadedPointCloud = new THREE.Points(obj.geometry, obj.material);
+                                generatePointCloud(loadedPointCloud);
+                                console.log('point cloud loaded');
+                            }
+                        );
+                    }
                 } else if (fileExtension === 'obj') {
                     loader = new OBJLoader();
                     loader.load(reader.result as string, (obj) => {
@@ -384,10 +482,11 @@ export default function Home() {
                     console.log('Unsupported file format');
                     return;
                 }
-                outputFileName ='polygon_' + uploadedFileName + '.txt';
                 // setLoading(false);
             };
-            
+
+            outputFileName ='polygon_' + uploadedFileName + '.txt';
+            console.log(outputFileName);
             reader.readAsDataURL(file);
         }
         
@@ -396,12 +495,43 @@ export default function Home() {
     const handleUploadClick = () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.obj, .pcd';
+        input.accept = '.obj, .pcd, .ply';
         input.addEventListener('change', handleFileUpload);
         input.click();
     };
     
-    
+
+    const handleCompareClick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.obj, .pcd, .ply';
+        input.addEventListener('change', handleCompareUpload);
+        input.click();
+    };
+
+    const handleCompareUpload = (event : any) => {
+        const file = event.target.files[0];
+        if (file) {
+            
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            console.log(fileExtension);
+            const reader = new FileReader();
+            reader.onload = () => {
+                let loader;
+                if (fileExtension === 'pcd') {
+                    loader = new PCDLoader();
+                    loader.load(reader.result as string, (obj) => {
+                            loadedPointCloud = new THREE.Points(obj.geometry, obj.material);
+                            generateSecondCloud(loadedPointCloud);
+                            console.log('point cloud loaded');
+                        }
+                    );
+                } 
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
 
     const download = (filename : string, text : string) => {
         let element = document.createElement('a');
@@ -418,12 +548,14 @@ export default function Home() {
 
     const handlePolygonExtractClick = () => {
         let data = "";
+        console.log('all clicked positions are: ' + allClickedPositions);
         for(let polygon of allClickedPositions) {
             for(let point of polygon) {
                 data += point.x + " " + point.y + " " + point.z + "\n";
             }
             data += "\n"; // add an empty line between polygons
         }
+        console.log('data is: ' + data);
         download(outputFileName, data);
     }
 
@@ -432,7 +564,7 @@ export default function Home() {
             <div className="CanvasContainer relative">
                 <canvas id="RendererCanvas" />
             </div>
-            {
+            {/* {
                 loading 
                 ? 
                 (<div className="text-center">
@@ -446,8 +578,7 @@ export default function Home() {
                 </div>)
                 : 
                 null
-            }
-
+            } */}
             <div className="absolute bottom-4 left-4">
                 <button
                     className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
@@ -457,12 +588,25 @@ export default function Home() {
                 </button>
             </div>
             <div className="absolute bottom-4 right-4">
-                <button
-                    className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
-                    onClick={handleUploadClick}
-                >
-                    Upload
-                </button>
+                {
+                    firstCloudLoaded
+                    ?
+                        (<button
+                            className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                            onClick={handleCompareClick}
+                        >
+                            Compare
+                        </button>)
+                    :
+                    (
+                        <button
+                            className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                            onClick={handleUploadClick}
+                        >
+                            Upload
+                        </button>
+                    )
+                }
             </div>
             <div className="absolute top-1/2 right-4">
                 <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
