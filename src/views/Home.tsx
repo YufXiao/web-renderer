@@ -9,7 +9,7 @@ import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-
+import { spawn } from "child_process";
 
 
 export default function Home() {
@@ -49,8 +49,21 @@ export default function Home() {
     let cloudToCompare : THREE.Points;
 
     let firstCloudCenter : THREE.Vector3 = new THREE.Vector3();
+    let firstMax : THREE.Vector3 = new THREE.Vector3();
+    let firstMin : THREE.Vector3 = new THREE.Vector3();
     let secondCloudCenter : THREE.Vector3 = new THREE.Vector3();
     let offset : THREE.Vector3 = new THREE.Vector3();
+
+    
+    const lightSourceCenter = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    const lightSource1 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    const lightSource2 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    const lightSource3 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    const lightSource4 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    const lightSource5 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    const lightSource6 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    const lightSource7 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    const lightSource8 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
 
     const vertexShader = `
         uniform float size;
@@ -119,6 +132,8 @@ export default function Home() {
         
         let boundingBox = new THREE.Box3().setFromObject(shaderCloud);
         firstCloudCenter = boundingBox.getCenter(new THREE.Vector3());
+        firstMax = boundingBox.max;
+        firstMin = boundingBox.min;
 
         scene.camera.position.copy(firstCloudCenter);
         scene.camera.position.x += 10;
@@ -135,7 +150,7 @@ export default function Home() {
         scene.scene.add(scene.objAxis);
 
         scene.scene.add(shaderCloud);
-        setFirstCloudLoaded(true);
+        // setFirstCloudLoaded(true);
 
     }
 
@@ -269,6 +284,7 @@ export default function Home() {
         showSemantic: true,
         showAxis: true,
         useShaderMaterial: true,
+        occlusionDetectionLightSource: false,
     };
 
     const [distance, setDistance] = useState<number>(0);
@@ -297,12 +313,63 @@ export default function Home() {
             
         // });
 
-
         gui.add(settings, 'useShaderMaterial').name('Use shader mtl').onChange((value : any) => {
             if (value) {
                 settings.useShaderMaterial = true;
             } else {
                 settings.useShaderMaterial = false;
+            }
+        });
+
+        gui.add(settings, 'occlusionDetectionLightSource').name('Occlusion detection light source').onChange((value : any) => {
+            if (value) {
+                if (shaderCloud) {
+                    // if(settings.useShaderMaterial) {
+                    //     lightSourceMaterial = shaderMaterial;
+                    // } else {
+                    //     lightSourceMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                    // }
+    
+                    lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
+                    scene.scene.add(lightSourceCenter);
+                    
+                    lightSource1.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
+                    scene.scene.add(lightSource1);
+                    
+                    lightSource2.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
+                    scene.scene.add(lightSource2);
+
+                    lightSource3.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
+                    scene.scene.add(lightSource3);
+
+                    lightSource4.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
+                    scene.scene.add(lightSource4);
+
+                    lightSource5.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
+                    scene.scene.add(lightSource5);
+                    
+                    lightSource6.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
+                    scene.scene.add(lightSource6);
+
+                    lightSource7.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
+                    scene.scene.add(lightSource7);
+
+                    lightSource8.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
+                    scene.scene.add(lightSource8);
+
+                } else {
+                    console.log('No shader cloud');
+                }
+            } else {
+                scene.scene.remove(lightSourceCenter);
+                scene.scene.remove(lightSource1);
+                scene.scene.remove(lightSource2);
+                scene.scene.remove(lightSource3);
+                scene.scene.remove(lightSource4);
+                scene.scene.remove(lightSource5);
+                scene.scene.remove(lightSource6);
+                scene.scene.remove(lightSource7);
+                scene.scene.remove(lightSource8);
             }
         });
 
@@ -559,6 +626,15 @@ export default function Home() {
         download(outputFileName, data);
     }
 
+    const executablePath = '/mnt/c/Users/51932/repo/pointclould-pipeline/build/.pcd_pipeline';
+    
+    const handleTestClick = () => {
+        // const pyProg =  spawn(executablePath);
+        // pyProg.stdout.on('data', function(data : any) {
+        //     console.log(data.toString());
+        // });
+    }
+    
     return ( 
         <div className="RendererCanvas flex flex-col justify-center items-center">
             <div className="CanvasContainer relative">
@@ -582,11 +658,19 @@ export default function Home() {
             <div className="absolute bottom-4 left-4">
                 <button
                     className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
-                    onClick={() => {handlePolygonExtractClick()}}
+                    onClick={handlePolygonExtractClick}
                 >
                     Extract Polygons
                 </button>
             </div>
+            {/* <div className="absolute top-1/2 left-4">
+                <button
+                    className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                    onClick={handleTestClick}
+                >
+                    test execution
+                </button>
+            </div> */}
             <div className="absolute bottom-4 right-4">
                 {
                     firstCloudLoaded
