@@ -40,8 +40,8 @@ export default function Home() {
     let loadedPointCloud : THREE.Points;
     let shaderCloud : THREE.Points;
     let INTERSECTED : number | undefined;
-    let PARTICLE_SIZE : number;
-    let POINT_PICKER_SIZE : number;
+    let PARTICLE_SIZE : number = 5;
+    let POINT_PICKER_SIZE : number = 3;
     let clickedPositions : THREE.Vector3[] = [];
     let allClickedPositions : THREE.Vector3[][] = [];
     let clickedSphereStack : THREE.Mesh[] = [];
@@ -87,12 +87,11 @@ export default function Home() {
         }
     `;
 
-    const generatePointCloud = (pointCloud : THREE.Points) => {
+    const generatePointCloud = (pointCloud : THREE.Points, size : number) => {
 
         let geometry = pointCloud.geometry;
         let attributes = geometry.attributes;
         let positions = attributes.position.array;
-        PARTICLE_SIZE = 5;
         let bufferGeometry = new THREE.BufferGeometry();
         let bufferPositions = new Float32Array(positions.length);
         let bufferColors = new Float32Array(positions.length);
@@ -104,14 +103,14 @@ export default function Home() {
             for (let i = 0; i < positions.length; i++) {
                 bufferPositions[i] = positions[i];
                 bufferColors[i] = colors[i];
-                bufferSizes[i / 3] = PARTICLE_SIZE;
+                bufferSizes[i / 3] = size;
             }
         } else {
             bufferColors = new Float32Array(positions.length);
             for (let i = 0; i < bufferColors.length; i++) {
                 bufferPositions[i] = positions[i];
                 bufferColors[i] = 1.0;
-                bufferSizes[i / 3] = PARTICLE_SIZE;
+                bufferSizes[i / 3] = size;
             }
         }
 
@@ -120,7 +119,7 @@ export default function Home() {
         bufferGeometry.setAttribute('size', new THREE.BufferAttribute(bufferSizes, 1));
         shaderCloud = new THREE.Points(bufferGeometry, new THREE.ShaderMaterial({
             uniforms: {
-                size: { value: PARTICLE_SIZE },
+                size: { value: size },
             },
             vertexShader: vertexShader,
             fragmentShader: fragmentShader,
@@ -286,11 +285,20 @@ export default function Home() {
         showAxis: true,
         useShaderMaterial: true,
         occlusionDetectionLightSource: false,
+        centerLightSource: false,
+        PARTICLE_SIZE: PARTICLE_SIZE,
+        POINT_PICKER_SIZE: POINT_PICKER_SIZE,
     };
 
     const [distance, setDistance] = useState<number>(0);
     const [firstCloudLoaded, setFirstCloudLoaded] = useState<boolean>(false);
     const [allPolygons, setAllPolygons] = useState<THREE.Vector3[][]>([]);
+    const [occlusion, setOcclusion] = useState<number>(0.0);
+    const [iou, setIou] = useState<number>(0.0);
+    const [precision, setPrecision] = useState<number>(0.0);
+    const [recall, setRecall] = useState<number>(0.0);
+    const [f1, setF1] = useState<number>(0.0);
+    const [accuracy, setAccuracy] = useState<number>(0.0);
 
     const computeDistance = (point1 : THREE.Vector3, point2 : THREE.Vector3) => {
         return Math.sqrt(Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2) + Math.pow(point1.z - point2.z, 2));
@@ -323,7 +331,20 @@ export default function Home() {
             }
         });
 
-        gui.add(settings, 'occlusionDetectionLightSource').name('Occlusion detection light source').onChange((value : any) => {
+        gui.add(settings, 'centerLightSource').name('Center').onChange((value : any) => {
+            if (value) {
+                if (shaderCloud) {
+                    lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
+                    scene.scene.add(lightSourceCenter);
+                } else {
+                    console.log('No shader cloud');
+                }
+            } else {
+                scene.scene.remove(lightSourceCenter);
+            }
+        });
+
+        gui.add(settings, 'occlusionDetectionLightSource').name('All lights').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
                     // if(settings.useShaderMaterial) {
@@ -375,12 +396,25 @@ export default function Home() {
             }
         });
 
+        gui.add(settings, 'PARTICLE_SIZE', 1, 10).name('Particle size').onChange((value : any) => {
+            if (shaderCloud) {
+                let resizedCloud = generatePointCloud(loadedPointCloud, value);
+                scene.scene.remove(shaderCloud);
+                scene.scene.add(resizedCloud);    
+            } else {
+                console.log('No shader cloud');
+            }
+        });
+
+        gui.add(settings, 'POINT_PICKER_SIZE', 1, 10).name('Picker size').onChange((value : any) => {
+            POINT_PICKER_SIZE = value;
+        });
+
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let selectedSphere : THREE.Mesh | undefined;
 
         window.addEventListener('mousemove', (event) => {
-            POINT_PICKER_SIZE = 3;
             if (event.target === scene.renderer.domElement) {
                 event.preventDefault();
                 mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -507,6 +541,31 @@ export default function Home() {
         // Listen for messages
         socket.addEventListener('message', (event) => {
             console.log('Message from server: ', event.data);
+            if (event.data.startsWith('-o=')) {
+                let occlusion = parseFloat(event.data.split('=').pop() as string);
+                setOcclusion(occlusion);
+            }
+            if (event.data.startsWith('-iou=')) {
+                let iou = parseFloat(event.data.split('=').pop() as string);
+                setIou(iou);
+            }
+            if (event.data.startsWith('-precision=')) {
+                let precision = parseFloat(event.data.split('=').pop() as string);
+                setPrecision(precision);
+            }
+            if (event.data.startsWith('-recall=')) {
+                let recall = parseFloat(event.data.split('=').pop() as string);
+                setRecall(recall);
+            }
+            if (event.data.startsWith('-f1_score=')) {
+                let f1 = parseFloat(event.data.split('=').pop() as string);
+                setF1(f1);
+            }
+            if (event.data.startsWith('-accuracy=')) {
+                let accuracy = parseFloat(event.data.split('=').pop() as string);
+                setAccuracy(accuracy);
+            }
+
         });
 
         // Connection closed
@@ -545,7 +604,7 @@ export default function Home() {
                     loader = new PCDLoader();
                     loader.load(reader.result as string, (obj) => {
                             loadedPointCloud = new THREE.Points(obj.geometry, obj.material);
-                            generatePointCloud(loadedPointCloud);
+                            generatePointCloud(loadedPointCloud, PARTICLE_SIZE);
                             console.log('point cloud loaded');
                         }
                     );
@@ -556,7 +615,7 @@ export default function Home() {
                         loader = new PCDLoader();
                         loader.load(reader.result as string, (obj) => {
                                 loadedPointCloud = new THREE.Points(obj.geometry, obj.material);
-                                generatePointCloud(loadedPointCloud);
+                                generatePointCloud(loadedPointCloud, PARTICLE_SIZE);
                                 console.log('point cloud loaded');
                             }
                         );
@@ -583,9 +642,24 @@ export default function Home() {
             console.log(outputFileName);
             reader.readAsDataURL(file);
         }
-        
     };
-  
+    
+    const handleChooseSegmentationClick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pcd';
+        input.addEventListener('change', handleChooseSegmentation);
+        input.click();
+    };
+
+    const handleChooseGroundTruthClick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pcd';
+        input.addEventListener('change', handleChooseGroundTruth);
+        input.click();
+    };
+
     const handleUploadClick = () => {
         const input = document.createElement('input');
         input.type = 'file';
@@ -657,8 +731,26 @@ export default function Home() {
         // download(outputFileName, data);
     }
     
-    const handleTestClick = () => {
-        socket.send('test websocket connection');
+    const handleComputeOcclusion = () => {
+        socket.send('-o');
+    }
+
+    const handleChooseSegmentation = (event : any) => {
+        const file = event.target.files[0];
+        if (file) {
+            socket.send(`-s=${file.name}`);   
+        }
+    }
+
+    const handleChooseGroundTruth = (event : any) => {
+        const file = event.target.files[0];
+        if (file) {
+            socket.send(`-gt=${file.name}`);   
+        }
+    }
+
+    const handleEvaluateClick = () => {
+        socket.send('-e');
     }
     
     return ( 
@@ -689,13 +781,53 @@ export default function Home() {
                     Extract Polygons
                 </button>
             </div>
-            <div className="absolute top-1/2 left-4">
+            <div className="absolute top-1/4 left-4">
+                <button
+                    className="flex-grow mt-4 mb-5 w-40 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-5 rounded"
+                    onClick={handleChooseGroundTruthClick}
+                >
+                    Ground truth
+                </button>
+                <button
+                    className="flex-grow mt-4 mb-5 w-40 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-5 rounded"
+                    onClick={handleChooseSegmentationClick}
+                >
+                    Segmentation
+                </button>
+
+                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                    <p className="text-white">IoU: {iou.toFixed(4)}</p>
+                </div>
+                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                    <p className="text-white">Accuracy: {accuracy.toFixed(4)}</p>
+                </div>
+                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                    <p className="text-white">Precision: {precision.toFixed(4)}</p>
+                </div>
+                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                    <p className="text-white">Recall: {recall.toFixed(4)}</p>
+                </div>
+                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                    <p className="text-white">F1: {f1.toFixed(4)}</p>
+                </div>
+                
                 <button
                     className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
-                    onClick={handleTestClick}
+                    onClick={handleEvaluateClick}
                 >
-                    test execution
+                    Evaluate
                 </button>
+            </div>
+            <div className="absolute top-2/3 right-4">
+                <button
+                    className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                    onClick={handleComputeOcclusion}
+                >
+                    Compute Occlusion
+                </button>
+                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                    <p className="text-white">Occlusion: {occlusion.toFixed(4)}</p>
+                </div>
             </div>
             <div className="absolute bottom-4 right-4">
                 {
