@@ -9,8 +9,8 @@ import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-import { spawn } from "child_process";
 
+const socket = new WebSocket('ws://localhost:8080');
 
 export default function Home() {
 
@@ -41,13 +41,14 @@ export default function Home() {
     let shaderCloud : THREE.Points;
     let INTERSECTED : number | undefined;
     let PARTICLE_SIZE : number;
+    let POINT_PICKER_SIZE : number;
     let clickedPositions : THREE.Vector3[] = [];
     let allClickedPositions : THREE.Vector3[][] = [];
     let clickedSphereStack : THREE.Mesh[] = [];
     let labelStack : THREE.Mesh[] = [];
 
     let cloudToCompare : THREE.Points;
-
+    
     let firstCloudCenter : THREE.Vector3 = new THREE.Vector3();
     let firstMax : THREE.Vector3 = new THREE.Vector3();
     let firstMin : THREE.Vector3 = new THREE.Vector3();
@@ -91,7 +92,7 @@ export default function Home() {
         let geometry = pointCloud.geometry;
         let attributes = geometry.attributes;
         let positions = attributes.position.array;
-        PARTICLE_SIZE = 2.5;
+        PARTICLE_SIZE = 5;
         let bufferGeometry = new THREE.BufferGeometry();
         let bufferPositions = new Float32Array(positions.length);
         let bufferColors = new Float32Array(positions.length);
@@ -289,6 +290,7 @@ export default function Home() {
 
     const [distance, setDistance] = useState<number>(0);
     const [firstCloudLoaded, setFirstCloudLoaded] = useState<boolean>(false);
+    const [allPolygons, setAllPolygons] = useState<THREE.Vector3[][]>([]);
 
     const computeDistance = (point1 : THREE.Vector3, point2 : THREE.Vector3) => {
         return Math.sqrt(Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2) + Math.pow(point1.z - point2.z, 2));
@@ -378,7 +380,7 @@ export default function Home() {
         let selectedSphere : THREE.Mesh | undefined;
 
         window.addEventListener('mousemove', (event) => {
-
+            POINT_PICKER_SIZE = 3;
             if (event.target === scene.renderer.domElement) {
                 event.preventDefault();
                 mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -398,12 +400,12 @@ export default function Home() {
                             }
                             if (settings.useShaderMaterial) {
                                 selectedSphere = new THREE.Mesh(
-                                    new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
+                                    new THREE.SphereGeometry(POINT_PICKER_SIZE / 100, 32, 32),
                                     shaderMaterial,
                                 );
                             } else {
                                 selectedSphere = new THREE.Mesh(
-                                    new THREE.SphereGeometry(PARTICLE_SIZE / 200, 32, 32),
+                                    new THREE.SphereGeometry(POINT_PICKER_SIZE / 100, 32, 32),
                                     new THREE.MeshBasicMaterial({ color: 0xffffff }),
                                 );
                             }
@@ -428,18 +430,21 @@ export default function Home() {
                 event.preventDefault();
                 if (INTERSECTED !== undefined) {
                     let positions = shaderCloud.geometry.attributes.position.array;
-                    let selectedPosition = new THREE.Vector3( 
-                        positions[INTERSECTED * 3],
-                        positions[INTERSECTED * 3 + 1],
-                        positions[INTERSECTED * 3 + 2],
-                    );
+                    let x : number = positions[INTERSECTED * 3];
+                    let y : number = positions[INTERSECTED * 3 + 1];
+                    let z : number = positions[INTERSECTED * 3 + 2];
+                    x = parseFloat(x.toFixed(2));
+                    y = parseFloat(y.toFixed(2));
+                    z = parseFloat(z.toFixed(2));
+                    let selectedPosition = new THREE.Vector3(x, y, z);
+                    
                     clickedPositions.push(selectedPosition);
                     if (clickedPositions[0] && clickedPositions[1]) {
                         setDistance(computeDistance(clickedPositions[0], clickedPositions[1]));
                     }
 
                     let clickedSphere = new THREE.Mesh(
-                        new THREE.SphereGeometry(PARTICLE_SIZE / 100, 32, 32),
+                        new THREE.SphereGeometry(POINT_PICKER_SIZE / 100, 32, 32),
                         shaderMaterial,
                     );
                     clickedSphere.position.set(
@@ -471,6 +476,7 @@ export default function Home() {
                 if (clickedPositions.length > 0) { 
                     if (confirm('Are you sure to extract all vertices for this polygon?')) {
                         allClickedPositions.push(clickedPositions);
+                        setAllPolygons(allClickedPositions);
                         alert(`polygon added, index is ${allClickedPositions.indexOf(clickedPositions)}, now ${allClickedPositions.length} polygons in total`)
                         clickedPositions = [];   
                         for (let i = 0; i < clickedSphereStack.length; i++) {
@@ -493,6 +499,26 @@ export default function Home() {
             }
         });
 
+        // Connection opened
+        socket.addEventListener('open', (event) => {
+            socket.send('Hello Server!');
+        });
+
+        // Listen for messages
+        socket.addEventListener('message', (event) => {
+            console.log('Message from server: ', event.data);
+        });
+
+        // Connection closed
+        socket.addEventListener('close', (event) => {
+            console.log('Server connection closed: ', event.code);
+        });
+
+        // Connection error
+        socket.addEventListener('error', (error) => {
+            console.error('WebSocket error: ', error);
+        });
+
         return () => {
             gui.destroy();
         };
@@ -507,6 +533,7 @@ export default function Home() {
         const file = event.target.files[0];
         if (file) {
             // setLoading(true);
+            socket.send(`-i=${file.name}`);
             uploadedFileName = file.name.split('.').shift();
             console.log(uploadedFileName);
             const fileExtension = file.name.split('.').pop().toLowerCase();
@@ -615,24 +642,23 @@ export default function Home() {
 
     const handlePolygonExtractClick = () => {
         let data = "";
-        console.log('all clicked positions are: ' + allClickedPositions);
-        for(let polygon of allClickedPositions) {
+        for(let polygon of allPolygons) {
             for(let point of polygon) {
-                data += point.x + " " + point.y + " " + point.z + "\n";
+                if (point === polygon[polygon.length - 1]) {
+                    data += point.x + " " + point.y + " " + point.z;
+                } else {
+                    data += point.x + " " + point.y + " " + point.z + ",";
+                }
             }
-            data += "\n"; // add an empty line between polygons
+            data += ";"; 
         }
-        console.log('data is: ' + data);
-        download(outputFileName, data);
+        console.log(`-p=${data}`);
+        socket.send(`-p=${data}`);
+        // download(outputFileName, data);
     }
-
-    const executablePath = '/mnt/c/Users/51932/repo/pointclould-pipeline/build/.pcd_pipeline';
     
     const handleTestClick = () => {
-        // const pyProg =  spawn(executablePath);
-        // pyProg.stdout.on('data', function(data : any) {
-        //     console.log(data.toString());
-        // });
+        socket.send('test websocket connection');
     }
     
     return ( 
@@ -663,14 +689,14 @@ export default function Home() {
                     Extract Polygons
                 </button>
             </div>
-            {/* <div className="absolute top-1/2 left-4">
+            <div className="absolute top-1/2 left-4">
                 <button
                     className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
                     onClick={handleTestClick}
                 >
                     test execution
                 </button>
-            </div> */}
+            </div>
             <div className="absolute bottom-4 right-4">
                 {
                     firstCloudLoaded
