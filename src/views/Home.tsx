@@ -66,6 +66,9 @@ export default function Home() {
     const lightSource7 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
     const lightSource8 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
 
+    let lightSourceMax = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial); // close to max point in cloud
+    let lightSourceMin = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial); // close to min point in cloud
+
     const vertexShader = `
         uniform float size;
         attribute vec3 color;
@@ -286,6 +289,8 @@ export default function Home() {
         useShaderMaterial: true,
         occlusionDetectionLightSource: false,
         centerLightSource: false,
+        viewpoint1: false,
+        viewpoint2: false,
         PARTICLE_SIZE: PARTICLE_SIZE,
         POINT_PICKER_SIZE: POINT_PICKER_SIZE,
     };
@@ -344,6 +349,33 @@ export default function Home() {
             }
         });
 
+        gui.add(settings, 'viewpoint1').name('viewpoint1-max').onChange((value : any) => {
+            if (value) {
+                if (shaderCloud) {
+                    lightSourceMax.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
+                    scene.scene.add(lightSourceMax);
+                 } else {
+                    console.log('No shader cloud');
+                }
+            } else { 
+                scene.scene.remove(lightSourceMax);
+            }
+        });
+
+        gui.add(settings, 'viewpoint2').name('viewpoint2-min').onChange((value : any) => {
+            if (value) {
+                if (shaderCloud) {
+                    lightSourceMin.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
+                    scene.scene.add(lightSourceMin);
+                } else {
+                    console.log('No shader cloud');
+                }
+            } else {
+                scene.scene.remove(lightSourceMin);
+            }
+        });
+
+
         gui.add(settings, 'occlusionDetectionLightSource').name('All lights').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
@@ -353,14 +385,14 @@ export default function Home() {
                     //     lightSourceMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
                     // }
     
-                    lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
-                    scene.scene.add(lightSourceCenter);
+                    // lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
+                    // scene.scene.add(lightSourceCenter);
                     
-                    lightSource1.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
-                    scene.scene.add(lightSource1);
+                    // lightSource1.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
+                    // scene.scene.add(lightSource1);
                     
-                    lightSource2.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
-                    scene.scene.add(lightSource2);
+                    // lightSource2.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
+                    // scene.scene.add(lightSource2);
 
                     lightSource3.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
                     scene.scene.add(lightSource3);
@@ -384,9 +416,9 @@ export default function Home() {
                     console.log('No shader cloud');
                 }
             } else {
-                scene.scene.remove(lightSourceCenter);
-                scene.scene.remove(lightSource1);
-                scene.scene.remove(lightSource2);
+                // scene.scene.remove(lightSourceCenter);
+                // scene.scene.remove(lightSource1);
+                // scene.scene.remove(lightSource2);
                 scene.scene.remove(lightSource3);
                 scene.scene.remove(lightSource4);
                 scene.scene.remove(lightSource5);
@@ -802,15 +834,14 @@ export default function Home() {
                     <p className="text-white">Accuracy: {accuracy.toFixed(4)}</p>
                 </div>
                 <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                    <p className="text-white">F1: {f1.toFixed(4)}</p>
+                </div>
+                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
                     <p className="text-white">Precision: {precision.toFixed(4)}</p>
                 </div>
                 <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
                     <p className="text-white">Recall: {recall.toFixed(4)}</p>
                 </div>
-                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
-                    <p className="text-white">F1: {f1.toFixed(4)}</p>
-                </div>
-                
                 <button
                     className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
                     onClick={handleEvaluateClick}
