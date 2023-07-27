@@ -807,7 +807,7 @@ export default function Home() {
             } */}
             <div className="absolute bottom-4 left-4">
                 <button
-                    className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-64 h-12 font-serif"
                     onClick={handlePolygonExtractClick}
                 >
                     Extract Polygons
@@ -815,35 +815,35 @@ export default function Home() {
             </div>
             <div className="absolute top-1/4 left-4">
                 <button
-                    className="flex-grow mt-4 mb-5 w-40 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-5 rounded"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-36 h-12 font-serif"
                     onClick={handleChooseGroundTruthClick}
                 >
                     Ground truth
                 </button>
                 <button
-                    className="flex-grow mt-4 mb-5 w-40 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-5 rounded"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-36 h-12 font-serif"
                     onClick={handleChooseSegmentationClick}
                 >
                     Segmentation
                 </button>
 
-                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
                     <p className="text-white">IoU: {iou.toFixed(4)}</p>
                 </div>
-                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
                     <p className="text-white">Accuracy: {accuracy.toFixed(4)}</p>
                 </div>
-                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
-                    <p className="text-white">F1: {f1.toFixed(4)}</p>
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
+                    <p className="text-white">F1 Score: {f1.toFixed(4)}</p>
                 </div>
-                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
                     <p className="text-white">Precision: {precision.toFixed(4)}</p>
                 </div>
-                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
                     <p className="text-white">Recall: {recall.toFixed(4)}</p>
                 </div>
                 <button
-                    className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 mt-5 w-64 h-12 font-serif"
                     onClick={handleEvaluateClick}
                 >
                     Evaluate
@@ -851,12 +851,12 @@ export default function Home() {
             </div>
             <div className="absolute top-2/3 right-4">
                 <button
-                    className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-64 h-12 font-serif"
                     onClick={handleComputeOcclusion}
                 >
                     Compute Occlusion
                 </button>
-                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif">
                     <p className="text-white">Occlusion: {occlusion.toFixed(4)}</p>
                 </div>
             </div>
@@ -865,7 +865,7 @@ export default function Home() {
                     firstCloudLoaded
                     ?
                         (<button
-                            className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                            className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-64 h-12 font-serif"
                             onClick={handleCompareClick}
                         >
                             Compare
@@ -873,7 +873,8 @@ export default function Home() {
                     :
                     (
                         <button
-                            className="flex-grow mt-4 mb-5 w-60 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded"
+                            type="button" 
+                            className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-64 h-12 font-serif"
                             onClick={handleUploadClick}
                         >
                             Upload
@@ -882,7 +883,7 @@ export default function Home() {
                 }
             </div>
             <div className="absolute top-1/2 right-4">
-                <div className="flex-grow bg-gray-700 text-white font-bold py-4 px-8 rounded">
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif">
                     <p className="text-white">Distance: {distance.toFixed(2)}</p>
                 </div>
              </div>
