@@ -38,6 +38,7 @@ export default function Home() {
 
     const scene = new SceneInit('RendererCanvas', shaderMaterial);
     let loadedPointCloud : THREE.Points;
+    let loadedMesh : THREE.Mesh;
     let shaderCloud : THREE.Points;
     let INTERSECTED : number | undefined;
     let PARTICLE_SIZE : number = 5;
@@ -652,17 +653,6 @@ export default function Home() {
                             }
                         );
                     }
-                } else if (fileExtension === 'obj') {
-                    loader = new OBJLoader();
-                    loader.load(reader.result as string, (obj) => {
-                            let loadedMesh = obj;
-                            loadedMesh.position.set(0, 0, 0);
-                            loadedMesh.castShadow = true;
-                            loadedMesh.receiveShadow = true;
-                            scene.dragableObjects.push(loadedMesh);
-                            scene.scene.add(loadedMesh);
-                        }
-                    );
                 } else {
                     console.log('Unsupported file format');
                     return;
@@ -672,6 +662,48 @@ export default function Home() {
 
             outputFileName ='polygon_' + uploadedFileName + '.txt';
             console.log(outputFileName);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleMeshUpload = (event : any) => {
+        const file = event.target.files[0];
+        if (file) {
+            
+            
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            console.log(fileExtension);
+            const reader = new FileReader();
+            reader.onload = () => {
+                let loader;
+                if (fileExtension === 'obj') {
+                    loader = new OBJLoader();
+                    loader.load(reader.result as string, (obj) => {
+                            loadedMesh = obj;
+                            loadedMesh.name = 'loadedMesh';
+                            loadedMesh.traverse((child) => {
+                                if (child instanceof THREE.Mesh) {
+                                    child.material = new THREE.MeshPhongMaterial({
+                                        color: 0xaaaaaa,
+                                        specular: 0x111111,
+                                        shininess: 200
+                                    });
+                                }
+                            });
+                            loadedMesh.scale.set(0.1, 0.1, 0.1);
+                            loadedMesh.position.set(0, 0, 0);
+                            scene.scene.add(loadedMesh);
+                            console.log('mesh loaded');
+                        }
+                    );
+                
+                } else {
+                    console.log('Unsupported file format');
+                    return;
+                }
+                // setLoading(false);
+            };
+
             reader.readAsDataURL(file);
         }
     };
@@ -697,6 +729,14 @@ export default function Home() {
         input.type = 'file';
         input.accept = '.obj, .pcd, .ply';
         input.addEventListener('change', handleFileUpload);
+        input.click();
+    };
+
+    const handleUploadMeshClick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.obj, .mtl';
+        input.addEventListener('change', handleMeshUpload);
         input.click();
     };
     
@@ -732,20 +772,6 @@ export default function Home() {
         }
     }
 
-
-    const download = (filename : string, text : string) => {
-        let element = document.createElement('a');
-        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-        element.setAttribute('download', filename);
-      
-        element.style.display = 'none';
-        document.body.appendChild(element);
-      
-        element.click();
-      
-        document.body.removeChild(element);
-      }
-
     const handlePolygonExtractClick = () => {
         let data = "";
         for(let polygon of allPolygons) {
@@ -760,7 +786,6 @@ export default function Home() {
         }
         console.log(`-p=${data}`);
         socket.send(`-p=${data}`);
-        // download(outputFileName, data);
     }
     
     const handleComputeOcclusion = () => {
@@ -807,84 +832,107 @@ export default function Home() {
             } */}
             <div className="absolute bottom-4 left-4">
                 <button
-                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-64 h-12 font-serif"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
                     onClick={handlePolygonExtractClick}
                 >
+                    <svg className="w-6 h-6 ml-2 mr-8 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 8h11m0 0L8 4m4 4-4 4m4-11h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3"/>
+                    </svg>
                     Extract Polygons
                 </button>
             </div>
-            <div className="absolute top-1/4 left-4">
+            <div className="absolute top-1/4 left-4 flex flex-col">
                 <button
-                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-36 h-12 font-serif"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 mt-5 w-60 h-12 font-serif"
+                    onClick={handleEvaluateClick}
+                >
+                    <svg className="w-6 h-6 ml-2 mr-8 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 8h11m0 0L8 4m4 4-4 4m4-11h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3"/>
+                    </svg>
+                    Evaluate
+                </button>
+
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 flex items-center font-serif ml-5">
+                    <p className="text-white ml-5 mr-10">IoU: </p>
+                    <p className="text-white ml-5">{iou.toFixed(4)}</p>
+                </div>
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
+                    <p className="text-white ml-5 mr-1">Accuracy: </p>
+                    <p className="text-white ml-5">{accuracy.toFixed(4)}</p>
+                </div>
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
+                    <p className="text-white ml-5 mr-2">F1 Score: </p>
+                    <p className="text-white ml-5">{f1.toFixed(4)}</p>
+                </div>
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
+                    <p className="text-white ml-5 mr-1">Precision: </p>
+                    <p className="text-white ml-5">{precision.toFixed(4)}</p>
+                </div>
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
+                    <p className="text-white ml-5 mr-7">Recall: </p>
+                    <p className="text-white ml-5">{recall.toFixed(4)}</p>
+                </div>
+
+                <button
+                    type="button" 
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
+                    onClick={handleUploadClick}
+                >
+                    <svg className="w-8 h-8 ml-2 mr-6 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                    </svg>
+                    Original Cloud
+                </button>
+                <button
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
                     onClick={handleChooseGroundTruthClick}
                 >
+                    <svg className="w-8 h-8 ml-2 mr-6 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                    </svg>
                     Ground truth
                 </button>
                 <button
-                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-36 h-12 font-serif"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
                     onClick={handleChooseSegmentationClick}
                 >
-                    Segmentation
+                    <svg className="w-8 h-8 ml-2 mr-6 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                    </svg>
+                    Semantic
                 </button>
-
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
-                    <p className="text-white">IoU: {iou.toFixed(4)}</p>
-                </div>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
-                    <p className="text-white">Accuracy: {accuracy.toFixed(4)}</p>
-                </div>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
-                    <p className="text-white">F1 Score: {f1.toFixed(4)}</p>
-                </div>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
-                    <p className="text-white">Precision: {precision.toFixed(4)}</p>
-                </div>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif ml-5">
-                    <p className="text-white">Recall: {recall.toFixed(4)}</p>
-                </div>
-                <button
-                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 mt-5 w-64 h-12 font-serif"
-                    onClick={handleEvaluateClick}
-                >
-                    Evaluate
-                </button>
+                
             </div>
             <div className="absolute top-2/3 right-4">
                 <button
-                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-64 h-12 font-serif"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 mb-2 w-60 h-12 font-serif"
                     onClick={handleComputeOcclusion}
                 >
+                    <svg className="w-6 h-6 ml-2 mr-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 8h11m0 0L8 4m4 4-4 4m4-11h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3"/>
+                    </svg>
                     Compute Occlusion
                 </button>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif">
-                    <p className="text-white">Occlusion: {occlusion.toFixed(4)}</p>
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 flex items-center dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif">
+                    <p className="text-white ml-5">Occlusion: </p>
+                    <p className="text-white ml-5">{occlusion.toFixed(4)}</p>
                 </div>
             </div>
             <div className="absolute bottom-4 right-4">
-                {
-                    firstCloudLoaded
-                    ?
-                        (<button
-                            className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-64 h-12 font-serif"
-                            onClick={handleCompareClick}
-                        >
-                            Compare
-                        </button>)
-                    :
-                    (
-                        <button
-                            type="button" 
-                            className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 text-center mr-2 mb-2 w-64 h-12 font-serif"
-                            onClick={handleUploadClick}
-                        >
-                            Upload
-                        </button>
-                    )
-                }
+                <button
+                    type="button" 
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 mb-2 w-60 h-12 font-serif"
+                    onClick={handleUploadMeshClick}
+                >
+                    <svg className="w-8 h-8 ml-5 mr-8 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                    </svg>
+                    Mesh
+                </button>
             </div>
             <div className="absolute top-1/2 right-4">
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-64 font-serif">
-                    <p className="text-white">Distance: {distance.toFixed(2)}</p>
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif">
+                    <p className="text-white">Points Distance: {distance.toFixed(2)}</p>
                 </div>
              </div>
         </div>
