@@ -25,6 +25,8 @@ export default class SceneInit{
     public dragControls : any;
     public shaderMaterial : any;
     public objAxis : any;
+    public meshMaterial : any;
+
     constructor(canvasId : any, shaderMaterial : any) {
         this.scene = undefined;
         this.camera = undefined;
@@ -49,6 +51,7 @@ export default class SceneInit{
         this.shaderMaterial = shaderMaterial;
 
         this.objAxis = undefined;
+        this.meshMaterial = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, wireframe: true });
     }
 
     initialize() {
@@ -63,7 +66,7 @@ export default class SceneInit{
         this.clock = new THREE.Clock();
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color( 0xa0a0a0 );
-		this.scene.fog = new THREE.Fog( 0xa0a0a0, 30, 100 );
+		// this.scene.fog = new THREE.Fog( 0xa0a0a0, 30, 80 );
 
         const canvas : any = document.getElementById(this.canvasId);
         this.renderer = new THREE.WebGLRenderer({
@@ -91,7 +94,7 @@ export default class SceneInit{
         this.dirLight.castShadow = true;
         this.scene.add(this.dirLight);
 
-        const mesh = new THREE.Mesh( new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({color: 0x393b39, depthWrite: false}));
+        const mesh = new THREE.Mesh( new THREE.PlaneGeometry(500, 500), new THREE.MeshPhongMaterial({color: 0x393b39, depthWrite: false}));
         mesh.translateZ(-5.0);
         mesh.receiveShadow = true;
         this.scene.add(mesh);

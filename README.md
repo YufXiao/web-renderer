@@ -16,8 +16,22 @@ yarn run dev
 
 ### How to use ?
 
-- upload point cloud
+- click 'Original Cloud' to upload original point cloud
+
 - right click to select point
+
 - press 'z' to cancel selection
+
 - press 'e' to extract points as vertices of polygon
-- click 'Extract polygon' to get .txt file where polygon data was stored there
+
+- click 'Compute Occlusion' to get occlusion level of point cloud 
+
+- click 'Extract polygon' will send polygon data to backend
+
+- click 'Ground Truth' to specify path of ground truth cloud
+
+- click 'Semantic' to specify path of semantic segmentation cloud
+
+- click 'Evaluate' to get result of evaluation metrics
+
+- click 'Mesh' to upload wireframed mesh

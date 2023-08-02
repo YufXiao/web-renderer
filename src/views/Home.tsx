@@ -5,6 +5,7 @@ import '../styles/Home.css';
 
 import { GUI } from 'lil-gui';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
@@ -38,7 +39,7 @@ export default function Home() {
 
     const scene = new SceneInit('RendererCanvas', shaderMaterial);
     let loadedPointCloud : THREE.Points;
-    let loadedMesh : THREE.Mesh;
+    let mesh : THREE.Mesh;
     let shaderCloud : THREE.Points;
     let INTERSECTED : number | undefined;
     let PARTICLE_SIZE : number = 5;
@@ -294,6 +295,7 @@ export default function Home() {
         viewpoint2: false,
         PARTICLE_SIZE: PARTICLE_SIZE,
         POINT_PICKER_SIZE: POINT_PICKER_SIZE,
+        wireframe: false,
     };
 
     const [distance, setDistance] = useState<number>(0);
@@ -319,7 +321,8 @@ export default function Home() {
         const lightFolder = gui.addFolder('Light');
         lightFolder.add(scene.dirLight, 'intensity', 0, 2);
 
-        gui.add(settings, 'showPoints').name('Cloud').onChange((value : any) => { 
+        const cloudFolder = gui.addFolder('Cloud');
+        cloudFolder.add(settings, 'showPoints').name('Cloud').onChange((value : any) => { 
             if (shaderCloud) {
                 shaderCloud.visible = value;
             }
@@ -329,7 +332,7 @@ export default function Home() {
             
         // });
 
-        gui.add(settings, 'useShaderMaterial').name('Use shader mtl').onChange((value : any) => {
+        cloudFolder.add(settings, 'useShaderMaterial').name('Use shader mtl').onChange((value : any) => {
             if (value) {
                 settings.useShaderMaterial = true;
             } else {
@@ -337,7 +340,7 @@ export default function Home() {
             }
         });
 
-        gui.add(settings, 'centerLightSource').name('Center').onChange((value : any) => {
+        cloudFolder.add(settings, 'centerLightSource').name('Center').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
                     lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
@@ -350,7 +353,7 @@ export default function Home() {
             }
         });
 
-        gui.add(settings, 'viewpoint1').name('viewpoint1-max').onChange((value : any) => {
+        cloudFolder.add(settings, 'viewpoint1').name('viewpoint1-max').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
                     lightSourceMax.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
@@ -363,7 +366,7 @@ export default function Home() {
             }
         });
 
-        gui.add(settings, 'viewpoint2').name('viewpoint2-min').onChange((value : any) => {
+        cloudFolder.add(settings, 'viewpoint2').name('viewpoint2-min').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
                     lightSourceMin.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
@@ -377,7 +380,7 @@ export default function Home() {
         });
 
 
-        gui.add(settings, 'occlusionDetectionLightSource').name('All lights').onChange((value : any) => {
+        cloudFolder.add(settings, 'occlusionDetectionLightSource').name('All lights').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
                     // if(settings.useShaderMaterial) {
@@ -386,14 +389,14 @@ export default function Home() {
                     //     lightSourceMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
                     // }
     
-                    // lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
-                    // scene.scene.add(lightSourceCenter);
+                    lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
+                    scene.scene.add(lightSourceCenter);
                     
-                    // lightSource1.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
-                    // scene.scene.add(lightSource1);
+                    lightSource1.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
+                    scene.scene.add(lightSource1);
                     
-                    // lightSource2.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
-                    // scene.scene.add(lightSource2);
+                    lightSource2.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
+                    scene.scene.add(lightSource2);
 
                     lightSource3.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
                     scene.scene.add(lightSource3);
@@ -417,9 +420,9 @@ export default function Home() {
                     console.log('No shader cloud');
                 }
             } else {
-                // scene.scene.remove(lightSourceCenter);
-                // scene.scene.remove(lightSource1);
-                // scene.scene.remove(lightSource2);
+                scene.scene.remove(lightSourceCenter);
+                scene.scene.remove(lightSource1);
+                scene.scene.remove(lightSource2);
                 scene.scene.remove(lightSource3);
                 scene.scene.remove(lightSource4);
                 scene.scene.remove(lightSource5);
@@ -429,19 +432,35 @@ export default function Home() {
             }
         });
 
-        gui.add(settings, 'PARTICLE_SIZE', 1, 10).name('Particle size').onChange((value : any) => {
-            if (shaderCloud) {
-                let resizedCloud = generatePointCloud(loadedPointCloud, value);
-                scene.scene.remove(shaderCloud);
-                scene.scene.add(resizedCloud);    
-            } else {
-                console.log('No shader cloud');
-            }
-        });
+        // gui.add(settings, 'PARTICLE_SIZE', 1, 10).name('Particle size').onChange((value : any) => {
+        //     if (shaderCloud) {
+        //         let resizedCloud = generatePointCloud(loadedPointCloud, value);
+        //         scene.scene.remove(shaderCloud);
+        //         scene.scene.add(resizedCloud);    
+        //     } else {
+        //         console.log('No shader cloud');
+        //     }
+        // });
 
-        gui.add(settings, 'POINT_PICKER_SIZE', 1, 10).name('Picker size').onChange((value : any) => {
+        cloudFolder.add(settings, 'POINT_PICKER_SIZE', 1, 10).name('Picker size').onChange((value : any) => {
             POINT_PICKER_SIZE = value;
         });
+
+        // const meshFolder = gui.addFolder('Mesh');
+        // meshFolder.add(settings, 'wireframe').name('Wireframe').onChange((value : any) => {
+        //     if (value) {
+        //         settings.wireframe = true;
+        //         scene.meshMaterial = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, wireframe: true });
+        //     } else {
+        //         settings.wireframe = false;
+        //         scene.meshMaterial = new THREE.MeshPhongMaterial({
+        //             color: 0xaaaaaa,
+        //             specular: 0x111111,
+        //             shininess: 200,
+        //             wireframe: false
+        //         });
+        //     }
+        // });
 
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -619,12 +638,10 @@ export default function Home() {
 
   
     let uploadedFileName: string = '';
-    let outputFileName: string = '';   
     
     const handleFileUpload = (event : any) => {
         const file = event.target.files[0];
         if (file) {
-            // setLoading(true);
             socket.send(`-i=${file.name}`);
             uploadedFileName = file.name.split('.').shift();
             console.log(uploadedFileName);
@@ -642,69 +659,50 @@ export default function Home() {
                         }
                     );
                 } else if (fileExtension === 'ply') {
-
                     loader = new PLYLoader();
-                    if (fileExtension === 'pcd') {
-                        loader = new PCDLoader();
-                        loader.load(reader.result as string, (obj) => {
-                                loadedPointCloud = new THREE.Points(obj.geometry, obj.material);
-                                generatePointCloud(loadedPointCloud, PARTICLE_SIZE);
-                                console.log('point cloud loaded');
-                            }
+                    loader.load(reader.result as string, (obj) => {
+                            const material = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
+                            loadedPointCloud = new THREE.Points(obj, material);
+                            generatePointCloud(loadedPointCloud, PARTICLE_SIZE);
+                            console.log('point cloud loaded');
+                        }
                         );
-                    }
+                    
                 } else {
                     console.log('Unsupported file format');
                     return;
                 }
-                // setLoading(false);
             };
-
-            outputFileName ='polygon_' + uploadedFileName + '.txt';
-            console.log(outputFileName);
             reader.readAsDataURL(file);
         }
     };
 
     const handleMeshUpload = (event : any) => {
-        const file = event.target.files[0];
-        if (file) {
-            
-            
-            const fileExtension = file.name.split('.').pop().toLowerCase();
-            console.log(fileExtension);
-            const reader = new FileReader();
-            reader.onload = () => {
-                let loader;
-                if (fileExtension === 'obj') {
-                    loader = new OBJLoader();
-                    loader.load(reader.result as string, (obj) => {
-                            loadedMesh = obj;
-                            loadedMesh.name = 'loadedMesh';
-                            loadedMesh.traverse((child) => {
-                                if (child instanceof THREE.Mesh) {
-                                    child.material = new THREE.MeshPhongMaterial({
-                                        color: 0xaaaaaa,
-                                        specular: 0x111111,
-                                        shininess: 200
-                                    });
-                                }
-                            });
-                            loadedMesh.scale.set(0.1, 0.1, 0.1);
-                            loadedMesh.position.set(0, 0, 0);
-                            scene.scene.add(loadedMesh);
-                            console.log('mesh loaded');
+        const objFile = event.target.files[0];
+        if (objFile) {
+            const fileExtension = objFile.name.split('.').pop().toLowerCase();
+            if (fileExtension === 'obj') {
+                const objReader = new FileReader();
+                objReader.onload = () => {
+                    const objLoader = new OBJLoader();
+                    const mesh = objLoader.parse(objReader.result as string);
+                    mesh.traverse((child) => {
+                        if (child instanceof THREE.Mesh) {
+                            child.material = scene.meshMaterial;
                         }
-                    );
-                
-                } else {
-                    console.log('Unsupported file format');
-                    return;
-                }
-                // setLoading(false);
-            };
-
-            reader.readAsDataURL(file);
+                    });
+                    mesh.scale.set(0.01, 0.01, 0.01);
+                    mesh.position.set(0, 0, 0);
+                    mesh.rotation.x = Math.PI / 2;
+                    scene.scene.add(mesh);
+                    // scene.scene.remove(scene.scene.fog);
+                    console.log('mesh loaded');
+                };
+                objReader.readAsText(objFile);
+            } else {
+                console.log('Unsupported file format');
+                return;
+            }
         }
     };
     
@@ -740,7 +738,7 @@ export default function Home() {
         input.click();
     };
     
-
+    // uplaod the cloud for comparison
     const handleCompareClick = () => {
         const input = document.createElement('input');
         input.type = 'file';
@@ -924,7 +922,7 @@ export default function Home() {
                     className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 mb-2 w-60 h-12 font-serif"
                     onClick={handleUploadMeshClick}
                 >
-                    <svg className="w-8 h-8 ml-5 mr-8 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                    <svg className="w-8 h-8 ml-5 mr-10 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
                     </svg>
                     Mesh
