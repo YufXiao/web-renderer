@@ -58,7 +58,7 @@ export default function Home() {
     let offset : THREE.Vector3 = new THREE.Vector3();
 
     
-    const lightSourceCenter = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    let lightSourceCenter = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
     const lightSource1 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
     const lightSource2 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
     const lightSource3 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
@@ -152,7 +152,7 @@ export default function Home() {
         scene.controls.update();
 
         scene.objAxis.position.copy(firstCloudCenter);
-        scene.scene.add(scene.objAxis);
+        // scene.scene.add(scene.objAxis);
 
         scene.scene.add(shaderCloud);
         // setFirstCloudLoaded(true);
@@ -307,6 +307,7 @@ export default function Home() {
     const [recall, setRecall] = useState<number>(0.0);
     const [f1, setF1] = useState<number>(0.0);
     const [accuracy, setAccuracy] = useState<number>(0.0);
+    const [outputFileName, setOutputFileName] = useState<string>('');
 
     const computeDistance = (point1 : THREE.Vector3, point2 : THREE.Vector3) => {
         return Math.sqrt(Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2) + Math.pow(point1.z - point2.z, 2));
@@ -353,7 +354,7 @@ export default function Home() {
             }
         });
 
-        cloudFolder.add(settings, 'viewpoint1').name('viewpoint1-max').onChange((value : any) => {
+        cloudFolder.add(settings, 'viewpoint1').name('Viewpoint Max').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
                     lightSourceMax.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
@@ -366,7 +367,7 @@ export default function Home() {
             }
         });
 
-        cloudFolder.add(settings, 'viewpoint2').name('viewpoint2-min').onChange((value : any) => {
+        cloudFolder.add(settings, 'viewpoint2').name('Viewpoint Min').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
                     lightSourceMin.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
@@ -673,6 +674,7 @@ export default function Home() {
                     return;
                 }
             };
+            setOutputFileName(uploadedFileName + '_poly.txt');
             reader.readAsDataURL(file);
         }
     };
@@ -691,11 +693,31 @@ export default function Home() {
                             child.material = scene.meshMaterial;
                         }
                     });
-                    mesh.scale.set(0.01, 0.01, 0.01);
+                    // mesh.scale.set(0.01, 0.01, 0.01);
                     mesh.position.set(0, 0, 0);
                     mesh.rotation.x = Math.PI / 2;
                     scene.scene.add(mesh);
-                    // scene.scene.remove(scene.scene.fog);
+
+                    const boundingBox = new THREE.Box3().setFromObject(mesh);
+                    const center = boundingBox.getCenter(new THREE.Vector3());
+                    const size = boundingBox.getSize(new THREE.Vector3());
+                    const min = boundingBox.min;
+                    const max = boundingBox.max;
+                    
+                    let sphereSize = size.x / 15;
+
+                    lightSourceCenter.position.set(center.x, center.y, center.z);
+                    lightSourceCenter.scale.set(sphereSize, sphereSize, sphereSize);
+                    scene.scene.add(lightSourceCenter);
+
+                    lightSourceMin.position.set((center.x + min.x) / 2, (center.y + min.y) / 2, (center.z + min.z) / 2);
+                    lightSourceMin.scale.set(sphereSize, sphereSize, sphereSize);
+                    scene.scene.add(lightSourceMin);
+
+                    lightSourceMax.position.set((center.x + max.x) / 2, (center.y + max.y) / 2, (center.z + max.z) / 2);
+                    lightSourceMax.scale.set(sphereSize, sphereSize, sphereSize);
+                    scene.scene.add(lightSourceMax);
+
                     console.log('mesh loaded');
                 };
                 objReader.readAsText(objFile);
@@ -725,7 +747,7 @@ export default function Home() {
     const handleUploadClick = () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.obj, .pcd, .ply';
+        input.accept = '.pcd, .ply';
         input.addEventListener('change', handleFileUpload);
         input.click();
     };
@@ -738,36 +760,17 @@ export default function Home() {
         input.click();
     };
     
-    // uplaod the cloud for comparison
-    const handleCompareClick = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.obj, .pcd, .ply';
-        input.addEventListener('change', handleCompareUpload);
-        input.click();
-    };
-
-    const handleCompareUpload = (event : any) => {
-        const file = event.target.files[0];
-        if (file) {
-            
-            const fileExtension = file.name.split('.').pop().toLowerCase();
-            console.log(fileExtension);
-            const reader = new FileReader();
-            reader.onload = () => {
-                let loader;
-                if (fileExtension === 'pcd') {
-                    loader = new PCDLoader();
-                    loader.load(reader.result as string, (obj) => {
-                            loadedPointCloud = new THREE.Points(obj.geometry, obj.material);
-                            generateSecondCloud(loadedPointCloud);
-                            console.log('point cloud loaded');
-                        }
-                    );
-                } 
-            }
-            reader.readAsDataURL(file);
-        }
+    const download = (filename : string, text : string) => {
+        let element = document.createElement('a');
+        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
+      
+        element.style.display = 'none';
+        document.body.appendChild(element);
+      
+        element.click();
+      
+        document.body.removeChild(element);
     }
 
     const handlePolygonExtractClick = () => {
@@ -784,6 +787,16 @@ export default function Home() {
         }
         console.log(`-p=${data}`);
         socket.send(`-p=${data}`);
+
+        let dataToDownload = "";
+        for(let polygon of allPolygons) {
+            for(let point of polygon) {
+                dataToDownload += point.x + " " + point.y + " " + point.z + "\n";
+            }
+            dataToDownload += "\n"; // add an empty line between polygons
+        }
+        console.log(outputFileName);
+        download(outputFileName, dataToDownload);
     }
     
     const handleComputeOcclusion = () => {

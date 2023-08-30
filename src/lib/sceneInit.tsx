@@ -65,7 +65,7 @@ export default class SceneInit{
         
         this.clock = new THREE.Clock();
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color( 0xa0a0a0 );
+        this.scene.background = new THREE.Color( 0x3d444f );
 		// this.scene.fog = new THREE.Fog( 0xa0a0a0, 30, 80 );
 
         const canvas : any = document.getElementById(this.canvasId);
@@ -94,8 +94,8 @@ export default class SceneInit{
         this.dirLight.castShadow = true;
         this.scene.add(this.dirLight);
 
-        const mesh = new THREE.Mesh( new THREE.PlaneGeometry(500, 500), new THREE.MeshPhongMaterial({color: 0x393b39, depthWrite: false}));
-        mesh.translateZ(-5.0);
+        const mesh = new THREE.Mesh( new THREE.PlaneGeometry(10000, 10000), new THREE.MeshPhongMaterial({color: 0x393b39, depthWrite: false}));
+        mesh.translateZ(-500.0);
         mesh.receiveShadow = true;
         this.scene.add(mesh);
         
