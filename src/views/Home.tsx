@@ -5,7 +5,7 @@ import '../styles/Home.css';
 
 import { GUI } from 'lil-gui';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
+import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
@@ -14,6 +14,35 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 const socket = new WebSocket('ws://localhost:8080');
 
 export default function Home() {
+
+    interface IColorMap {
+        [key: string]: string;
+    }
+    
+
+    const SEMANTIC_LABEL_MAP : IColorMap = {
+        '0,0,0': 'undefined',
+        '174,199,232': 'wall',
+        '152,223,138': 'floor',
+        '31,119,180': 'cabinet',
+        '255,187,120': 'bed',
+        '188,189,34': 'chair',
+        '140,86,75': 'sofa',
+        '255,152,150': 'table',
+        '214,39,40': 'door',
+        '197,176,213': 'window',
+        '148,103,189': 'bookshelf',
+        '196,156,148': 'picture',
+        '23,190,207': 'counter',
+        '247,182,210': 'desk',
+        '219,219,141': 'curtain',
+        '255,127,14': 'refrigerator',
+        '158,218,229': 'shower curtain',
+        '44,160,44': 'toilet',
+        '112,128,144': 'sink',
+        '227,119,194': 'bathtub',
+        '82,84,163': 'otherfurniture'
+      };
 
     let shaderMaterial = new THREE.ShaderMaterial({
         uniforms: {
@@ -59,17 +88,18 @@ export default function Home() {
 
     
     let lightSourceCenter = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    const lightSource1 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    const lightSource2 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    const lightSource3 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    const lightSource4 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    const lightSource5 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    const lightSource6 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    const lightSource7 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    const lightSource8 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    // const lightSource1 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    // const lightSource2 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    // const lightSource3 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    // const lightSource4 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    // const lightSource5 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    // const lightSource6 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    // const lightSource7 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
+    // const lightSource8 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
 
     let lightSourceMax = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial); // close to max point in cloud
     let lightSourceMin = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial); // close to min point in cloud
+    let lightSourceCenterMin = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
 
     const vertexShader = `
         uniform float size;
@@ -158,6 +188,7 @@ export default function Home() {
         // setFirstCloudLoaded(true);
 
     }
+
 
     const generateSecondCloud = (pointCloud : THREE.Points) => {
 
@@ -252,26 +283,49 @@ export default function Home() {
         document.body.appendChild(label);
     }
 
-    const generateTextGeometry = (selectedPosition : THREE.Vector3, clickedPositions : THREE.Vector3[]) => {
+    const generateTextGeometry = (selectedPosition : THREE.Vector3, clickedPositions : THREE.Vector3[], showSemantic : boolean, semanticString : string) => {
         let loader = new FontLoader();
-        loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
-            let textGeometry = new TextGeometry(`${clickedPositions.indexOf(selectedPosition)} - (${selectedPosition.x.toFixed(2)}, ${selectedPosition.y.toFixed(2)}, ${selectedPosition.z.toFixed(2)})`, {
-                font: font,
-                size: 0.05,
-                height: 0.01,
+        if (!showSemantic) {
+            loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+                let textGeometry = new TextGeometry(`${clickedPositions.indexOf(selectedPosition)} - (${selectedPosition.x.toFixed(2)}, ${selectedPosition.y.toFixed(2)}, ${selectedPosition.z.toFixed(2)})`, {
+                    font: font,
+                    size: 0.05,
+                    height: 0.01,
+                });
+                let textMaterial = new THREE.MeshBasicMaterial({ color: 0xfff8f7 });
+                let textMesh = new THREE.Mesh(textGeometry, textMaterial);
+                textMesh.position.set(
+                    selectedPosition.x + 0.1,
+                    selectedPosition.y - 0.1,
+                    selectedPosition.z + 0.1,
+                );
+                textMesh.up.set(0, 0, 1);
+                textMesh.lookAt(scene.camera.position);
+                labelStack.push(textMesh);
+                scene.scene.add(textMesh);
             });
-            let textMaterial = new THREE.MeshBasicMaterial({ color: 0xfff8f7 });
-            let textMesh = new THREE.Mesh(textGeometry, textMaterial);
-            textMesh.position.set(
-                selectedPosition.x + 0.1,
-                selectedPosition.y - 0.1,
-                selectedPosition.z + 0.1,
-            );
-            textMesh.up.set(0, 0, 1);
-            textMesh.lookAt(scene.camera.position);
-            labelStack.push(textMesh);
-            scene.scene.add(textMesh);
-        });
+        } else {
+            console.log('semantic string is: ' + semanticString);
+            loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+                let textGeometry = new TextGeometry(`${semanticString} - ${clickedPositions.indexOf(selectedPosition)} - (${selectedPosition.x.toFixed(2)}, ${selectedPosition.y.toFixed(2)}, ${selectedPosition.z.toFixed(2)})`, {
+                    font: font,
+                    size: 0.05,
+                    height: 0.01,
+                });
+                let textMaterial = new THREE.MeshBasicMaterial({ color: 0xfff8f7 });
+                let textMesh = new THREE.Mesh(textGeometry, textMaterial);
+                textMesh.position.set(
+                    selectedPosition.x + 0.1,
+                    selectedPosition.y - 0.1,
+                    selectedPosition.z + 0.1,
+                );
+                textMesh.up.set(0, 0, 1);
+                textMesh.lookAt(scene.camera.position);
+                labelStack.push(textMesh);
+                scene.scene.add(textMesh);
+            });
+
+        }
     }
 
     const undoClick = () => {
@@ -285,8 +339,8 @@ export default function Home() {
     }
 
     const settings = {
-        showPoints: true,
-        showSemantic: true,
+        showPoints: false,
+        showSemantic: false,
         showAxis: true,
         useShaderMaterial: true,
         occlusionDetectionLightSource: false,
@@ -299,15 +353,15 @@ export default function Home() {
     };
 
     const [distance, setDistance] = useState<number>(0);
-    const [firstCloudLoaded, setFirstCloudLoaded] = useState<boolean>(false);
     const [allPolygons, setAllPolygons] = useState<THREE.Vector3[][]>([]);
     const [occlusion, setOcclusion] = useState<number>(0.0);
-    const [iou, setIou] = useState<number>(0.0);
-    const [precision, setPrecision] = useState<number>(0.0);
-    const [recall, setRecall] = useState<number>(0.0);
     const [f1, setF1] = useState<number>(0.0);
-    const [accuracy, setAccuracy] = useState<number>(0.0);
     const [outputFileName, setOutputFileName] = useState<string>('');
+    
+    const [pattern, setPattern] = useState<number>(0);
+    const [useViewpointCenter, setUseViewpointCenter] = useState<boolean>(false);
+    const [useViewpointMin, setUseViewpointMin] = useState<boolean>(false);
+    const [useViewpointMax, setUseViewpointMax] = useState<boolean>(false);
 
     const computeDistance = (point1 : THREE.Vector3, point2 : THREE.Vector3) => {
         return Math.sqrt(Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2) + Math.pow(point1.z - point2.z, 2));
@@ -329,9 +383,15 @@ export default function Home() {
             }
         });
 
-        // gui.add(settings, 'showSemantic').name('Semantic').onChange((value : any) => {
+        gui.add(settings, 'showSemantic').name('Semantic').onChange((value : any) => {
             
-        // });
+            if (value) {
+                settings.showSemantic = true;
+            } else {
+                settings.showSemantic = false;
+            }
+
+        });
 
         cloudFolder.add(settings, 'useShaderMaterial').name('Use shader mtl').onChange((value : any) => {
             if (value) {
@@ -344,6 +404,7 @@ export default function Home() {
         cloudFolder.add(settings, 'centerLightSource').name('Center').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
+                    setUseViewpointCenter(true);
                     lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
                     scene.scene.add(lightSourceCenter);
                 } else {
@@ -357,6 +418,7 @@ export default function Home() {
         cloudFolder.add(settings, 'viewpoint1').name('Viewpoint Max').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
+                    setUseViewpointMax(true);
                     lightSourceMax.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
                     scene.scene.add(lightSourceMax);
                  } else {
@@ -370,6 +432,7 @@ export default function Home() {
         cloudFolder.add(settings, 'viewpoint2').name('Viewpoint Min').onChange((value : any) => {
             if (value) {
                 if (shaderCloud) {
+                    setUseViewpointMin(true);
                     lightSourceMin.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
                     scene.scene.add(lightSourceMin);
                 } else {
@@ -381,87 +444,10 @@ export default function Home() {
         });
 
 
-        cloudFolder.add(settings, 'occlusionDetectionLightSource').name('All lights').onChange((value : any) => {
-            if (value) {
-                if (shaderCloud) {
-                    // if(settings.useShaderMaterial) {
-                    //     lightSourceMaterial = shaderMaterial;
-                    // } else {
-                    //     lightSourceMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-                    // }
-    
-                    lightSourceCenter.position.set(firstCloudCenter.x, firstCloudCenter.y, firstCloudCenter.z);
-                    scene.scene.add(lightSourceCenter);
-                    
-                    lightSource1.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
-                    scene.scene.add(lightSource1);
-                    
-                    lightSource2.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
-                    scene.scene.add(lightSource2);
-
-                    lightSource3.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
-                    scene.scene.add(lightSource3);
-
-                    lightSource4.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
-                    scene.scene.add(lightSource4);
-
-                    lightSource5.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
-                    scene.scene.add(lightSource5);
-                    
-                    lightSource6.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
-                    scene.scene.add(lightSource6);
-
-                    lightSource7.position.set((firstCloudCenter.x + firstMax.x) / 2, (firstCloudCenter.y + firstMin.y) / 2, (firstCloudCenter.z + firstMin.z) / 2);
-                    scene.scene.add(lightSource7);
-
-                    lightSource8.position.set((firstCloudCenter.x + firstMin.x) / 2, (firstCloudCenter.y + firstMax.y) / 2, (firstCloudCenter.z + firstMax.z) / 2);
-                    scene.scene.add(lightSource8);
-
-                } else {
-                    console.log('No shader cloud');
-                }
-            } else {
-                scene.scene.remove(lightSourceCenter);
-                scene.scene.remove(lightSource1);
-                scene.scene.remove(lightSource2);
-                scene.scene.remove(lightSource3);
-                scene.scene.remove(lightSource4);
-                scene.scene.remove(lightSource5);
-                scene.scene.remove(lightSource6);
-                scene.scene.remove(lightSource7);
-                scene.scene.remove(lightSource8);
-            }
-        });
-
-        // gui.add(settings, 'PARTICLE_SIZE', 1, 10).name('Particle size').onChange((value : any) => {
-        //     if (shaderCloud) {
-        //         let resizedCloud = generatePointCloud(loadedPointCloud, value);
-        //         scene.scene.remove(shaderCloud);
-        //         scene.scene.add(resizedCloud);    
-        //     } else {
-        //         console.log('No shader cloud');
-        //     }
-        // });
-
         cloudFolder.add(settings, 'POINT_PICKER_SIZE', 1, 10).name('Picker size').onChange((value : any) => {
             POINT_PICKER_SIZE = value;
         });
 
-        // const meshFolder = gui.addFolder('Mesh');
-        // meshFolder.add(settings, 'wireframe').name('Wireframe').onChange((value : any) => {
-        //     if (value) {
-        //         settings.wireframe = true;
-        //         scene.meshMaterial = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, wireframe: true });
-        //     } else {
-        //         settings.wireframe = false;
-        //         scene.meshMaterial = new THREE.MeshPhongMaterial({
-        //             color: 0xaaaaaa,
-        //             specular: 0x111111,
-        //             shininess: 200,
-        //             wireframe: false
-        //         });
-        //     }
-        // });
 
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -478,10 +464,20 @@ export default function Home() {
                 if (shaderCloud) {
                     const intersects = raycaster.intersectObject(shaderCloud, false);
                     if (intersects.length > 0) {
+
                         let positions = shaderCloud.geometry.attributes.position.array;
                         let intersect = intersects[0];
+                        let colors = shaderCloud.geometry.attributes.color.array;
                         INTERSECTED = intersect.index;
+
                         if (INTERSECTED !== undefined) {
+
+                            // if (settings.showSemantic) {
+                            //     let colorString = `${Math.round(colors[INTERSECTED * 3])},${Math.round(colors[INTERSECTED * 3 + 1])},${Math.round(colors[INTERSECTED * 3 + 2])}`;
+                            //     let semanticLabel = SEMANTIC_LABEL_MAP[colorString] || 'undefined';
+                            //     generateTextGeometry(new THREE.Vector3(positions[INTERSECTED * 3], positions[INTERSECTED * 3 + 1], positions[INTERSECTED * 3 + 2]), clickedPositions, settings.showSemantic, semanticLabel);
+                            // }
+
                             if (selectedSphere) {
                                 scene.scene.remove(selectedSphere);
                             }
@@ -542,7 +538,7 @@ export default function Home() {
                     scene.scene.add(clickedSphere);
                     console.log('sphere clicked');
                     clickedSphereStack.push(clickedSphere);
-                    generateTextGeometry(selectedPosition, clickedPositions);
+                    generateTextGeometry(selectedPosition, clickedPositions, settings.showSemantic, '');
                 }
                 else {
                     INTERSECTED = undefined;
@@ -679,6 +675,8 @@ export default function Home() {
         }
     };
 
+    const [loadedMesh, setLoadedMesh] = useState<THREE.Group | undefined>(undefined);
+
     const handleMeshUpload = (event : any) => {
         const objFile = event.target.files[0];
         if (objFile) {
@@ -693,9 +691,10 @@ export default function Home() {
                             child.material = scene.meshMaterial;
                         }
                     });
+
                     // mesh.scale.set(0.01, 0.01, 0.01);
-                    mesh.position.set(0, 0, 0);
-                    mesh.rotation.x = Math.PI / 2;
+                    // mesh.rotation.x = Math.PI / 2;
+                    setLoadedMesh(mesh);
                     scene.scene.add(mesh);
 
                     const boundingBox = new THREE.Box3().setFromObject(mesh);
@@ -718,6 +717,10 @@ export default function Home() {
                     lightSourceMax.scale.set(sphereSize, sphereSize, sphereSize);
                     scene.scene.add(lightSourceMax);
 
+                    lightSourceCenterMin.position.set(center.x, center.y, min.z);
+                    lightSourceCenterMin.scale.set(sphereSize, sphereSize, sphereSize);
+                    scene.scene.add(lightSourceCenterMin);
+
                     console.log('mesh loaded');
                 };
                 objReader.readAsText(objFile);
@@ -727,6 +730,23 @@ export default function Home() {
             }
         }
     };
+
+    const handleMeshExportClick = () => {
+        if (!loadedMesh) {
+            console.log('No mesh loaded to export.');
+            return;
+        }
+    
+        const exporter = new OBJExporter();
+        const result = exporter.parse(loadedMesh);
+    
+        const blob = new Blob([result], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'exported_mesh.obj';
+        link.click();
+    };
+
     
     const handleChooseSegmentationClick = () => {
         const input = document.createElement('input');
@@ -826,21 +846,6 @@ export default function Home() {
             <div className="CanvasContainer relative">
                 <canvas id="RendererCanvas" />
             </div>
-            {/* {
-                loading 
-                ? 
-                (<div className="text-center">
-                    <div role="status">
-                        <svg aria-hidden="true" className="w-8 h-8 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
-                            <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
-                        </svg>
-                        <span className="sr-only">Loading...</span>
-                    </div>
-                </div>)
-                : 
-                null
-            } */}
             <div className="absolute bottom-4 left-4">
                 <button
                     className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
@@ -853,6 +858,7 @@ export default function Home() {
                 </button>
             </div>
             <div className="absolute top-1/4 left-4 flex flex-col">
+        
                 <button
                     className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 mt-5 w-60 h-12 font-serif"
                     onClick={handleEvaluateClick}
@@ -863,37 +869,11 @@ export default function Home() {
                     Evaluate
                 </button>
 
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 flex items-center font-serif ml-5">
-                    <p className="text-white ml-5 mr-10">IoU: </p>
-                    <p className="text-white ml-5">{iou.toFixed(4)}</p>
-                </div>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
-                    <p className="text-white ml-5 mr-1">Accuracy: </p>
-                    <p className="text-white ml-5">{accuracy.toFixed(4)}</p>
-                </div>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5 mb-2">
                     <p className="text-white ml-5 mr-2">F1 Score: </p>
                     <p className="text-white ml-5">{f1.toFixed(4)}</p>
                 </div>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
-                    <p className="text-white ml-5 mr-1">Precision: </p>
-                    <p className="text-white ml-5">{precision.toFixed(4)}</p>
-                </div>
-                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
-                    <p className="text-white ml-5 mr-7">Recall: </p>
-                    <p className="text-white ml-5">{recall.toFixed(4)}</p>
-                </div>
 
-                <button
-                    type="button" 
-                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
-                    onClick={handleUploadClick}
-                >
-                    <svg className="w-8 h-8 ml-2 mr-6 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-                    </svg>
-                    Original Cloud
-                </button>
                 <button
                     className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
                     onClick={handleChooseGroundTruthClick}
@@ -904,7 +884,7 @@ export default function Home() {
                     Ground truth
                 </button>
                 <button
-                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-8 w-60 h-12 font-serif"
                     onClick={handleChooseSegmentationClick}
                 >
                     <svg className="w-8 h-8 ml-2 mr-6 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
@@ -912,6 +892,22 @@ export default function Home() {
                     </svg>
                     Semantic
                 </button>
+                
+                <button
+                    type="button" 
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 ml-5 mb-2 w-60 h-12 font-serif"
+                    onClick={handleUploadClick}
+                >
+                    <svg className="w-8 h-8 ml-2 mr-6 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                    </svg>
+                    Original Cloud
+                </button>
+
+                <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
+                    <p className="text-white ml-5">Point Nums: </p>
+                    <p className="text-white ml-5">0</p>
+                </div>
                 
             </div>
             <div className="absolute top-2/3 right-4">
@@ -940,6 +936,7 @@ export default function Home() {
                     </svg>
                     Mesh
                 </button>
+
             </div>
             <div className="absolute top-1/2 right-4">
                 <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif">

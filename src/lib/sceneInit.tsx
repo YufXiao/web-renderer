@@ -100,7 +100,7 @@ export default class SceneInit{
         this.scene.add(mesh);
         
         this.objAxis = new THREE.AxesHelper(10);
-        this.scene.add(this.objAxis);
+        // this.scene.add(this.objAxis);
         window.addEventListener('resize', () => this.onWindowResize(), false);        
     }
 
