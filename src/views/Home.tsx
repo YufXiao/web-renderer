@@ -88,14 +88,6 @@ export default function Home() {
 
     
     let lightSourceCenter = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    // const lightSource1 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    // const lightSource2 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    // const lightSource3 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    // const lightSource4 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    // const lightSource5 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    // const lightSource6 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    // const lightSource7 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
-    // const lightSource8 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial);
 
     let lightSourceMax = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial); // close to max point in cloud
     let lightSourceMin = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), shaderMaterial); // close to min point in cloud
@@ -132,6 +124,8 @@ export default function Home() {
         let bufferColors = new Float32Array(positions.length);
         let bufferSizes = new Float32Array(positions.length / 3);
 
+        setPointNumber(bufferSizes.length);
+        
         if (attributes.color !== undefined) {
             let colors = attributes.color.array;
             bufferColors = new Float32Array(colors.length);
@@ -339,7 +333,7 @@ export default function Home() {
     }
 
     const settings = {
-        showPoints: false,
+        showPoints: true,
         showSemantic: false,
         showAxis: true,
         useShaderMaterial: true,
@@ -354,6 +348,7 @@ export default function Home() {
 
     const [distance, setDistance] = useState<number>(0);
     const [allPolygons, setAllPolygons] = useState<THREE.Vector3[][]>([]);
+    const [pointNumber, setPointNumber] = useState<number>(0);
     const [occlusion, setOcclusion] = useState<number>(0.0);
     const [f1, setF1] = useState<number>(0.0);
     const [outputFileName, setOutputFileName] = useState<string>('');
@@ -468,15 +463,10 @@ export default function Home() {
                         let positions = shaderCloud.geometry.attributes.position.array;
                         let intersect = intersects[0];
                         let colors = shaderCloud.geometry.attributes.color.array;
+
                         INTERSECTED = intersect.index;
 
                         if (INTERSECTED !== undefined) {
-
-                            // if (settings.showSemantic) {
-                            //     let colorString = `${Math.round(colors[INTERSECTED * 3])},${Math.round(colors[INTERSECTED * 3 + 1])},${Math.round(colors[INTERSECTED * 3 + 2])}`;
-                            //     let semanticLabel = SEMANTIC_LABEL_MAP[colorString] || 'undefined';
-                            //     generateTextGeometry(new THREE.Vector3(positions[INTERSECTED * 3], positions[INTERSECTED * 3 + 1], positions[INTERSECTED * 3 + 2]), clickedPositions, settings.showSemantic, semanticLabel);
-                            // }
 
                             if (selectedSphere) {
                                 scene.scene.remove(selectedSphere);
@@ -512,6 +502,7 @@ export default function Home() {
             if (event.target === scene.renderer.domElement) {
                 event.preventDefault();
                 if (INTERSECTED !== undefined) {
+
                     let positions = shaderCloud.geometry.attributes.position.array;
                     let x : number = positions[INTERSECTED * 3];
                     let y : number = positions[INTERSECTED * 3 + 1];
@@ -521,7 +512,18 @@ export default function Home() {
                     z = parseFloat(z.toFixed(2));
                     let selectedPosition = new THREE.Vector3(x, y, z);
                     
+                    let colors = shaderCloud.geometry.attributes.color.array;
+                    let r = Math.round(colors[INTERSECTED * 3] * 255);
+                    let g = Math.round(colors[INTERSECTED * 3 + 1] * 255);
+                    let b = Math.round(colors[INTERSECTED * 3 + 2] * 255);
+
+                    let colorString = `${r},${g},${b}`;
+                    console.log(colorString);
+
+                    let semanticLabel = SEMANTIC_LABEL_MAP[colorString] || 'undefined';
+                    
                     clickedPositions.push(selectedPosition);
+
                     if (clickedPositions[0] && clickedPositions[1]) {
                         setDistance(computeDistance(clickedPositions[0], clickedPositions[1]));
                     }
@@ -538,7 +540,7 @@ export default function Home() {
                     scene.scene.add(clickedSphere);
                     console.log('sphere clicked');
                     clickedSphereStack.push(clickedSphere);
-                    generateTextGeometry(selectedPosition, clickedPositions, settings.showSemantic, '');
+                    generateTextGeometry(selectedPosition, clickedPositions, settings.showSemantic, semanticLabel);
                 }
                 else {
                     INTERSECTED = undefined;
@@ -590,29 +592,13 @@ export default function Home() {
         // Listen for messages
         socket.addEventListener('message', (event) => {
             console.log('Message from server: ', event.data);
-            if (event.data.startsWith('-o=')) {
+            if (event.data.startsWith('-occlusion_level=')) {
                 let occlusion = parseFloat(event.data.split('=').pop() as string);
                 setOcclusion(occlusion);
-            }
-            if (event.data.startsWith('-iou=')) {
-                let iou = parseFloat(event.data.split('=').pop() as string);
-                setIou(iou);
-            }
-            if (event.data.startsWith('-precision=')) {
-                let precision = parseFloat(event.data.split('=').pop() as string);
-                setPrecision(precision);
-            }
-            if (event.data.startsWith('-recall=')) {
-                let recall = parseFloat(event.data.split('=').pop() as string);
-                setRecall(recall);
             }
             if (event.data.startsWith('-f1_score=')) {
                 let f1 = parseFloat(event.data.split('=').pop() as string);
                 setF1(f1);
-            }
-            if (event.data.startsWith('-accuracy=')) {
-                let accuracy = parseFloat(event.data.split('=').pop() as string);
-                setAccuracy(accuracy);
             }
 
         });
@@ -747,6 +733,14 @@ export default function Home() {
         link.click();
     };
 
+    const handleChooseBoundaryClick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pcd';
+        input.addEventListener('change', handleChooseBoundary);
+        input.click();
+    }
+
     
     const handleChooseSegmentationClick = () => {
         const input = document.createElement('input');
@@ -821,6 +815,13 @@ export default function Home() {
     
     const handleComputeOcclusion = () => {
         socket.send('-o');
+    }
+
+    const handleChooseBoundary = (event : any) => {
+        const file = event.target.files[0];
+        if (file) {
+            socket.send(`-b=${file.name}`);   
+        }
     }
 
     const handleChooseSegmentation = (event : any) => {
@@ -906,11 +907,20 @@ export default function Home() {
 
                 <div className="text-white bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-base px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:focus:ring-gray-700 dark:border-gray-700 w-60 font-serif flex items-center ml-5">
                     <p className="text-white ml-5">Point Nums: </p>
-                    <p className="text-white ml-5">0</p>
+                    <p className="text-white ml-5">{pointNumber}</p>
                 </div>
                 
             </div>
             <div className="absolute top-2/3 right-4">
+                <button
+                    className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 mb-2 w-60 h-12 font-serif"
+                    onClick={handleChooseBoundaryClick}
+                >
+                    <svg className="w-8 h-8 ml-2 mr-6 text-white-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                    </svg>
+                    Boundary
+                </button>
                 <button
                     className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-base px-5 py-2.5 flex items-center mr-2 mb-2 w-60 h-12 font-serif"
                     onClick={handleComputeOcclusion}
